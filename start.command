@@ -2,6 +2,16 @@
 # Di chuyen vao thu muc chua script
 cd "$(dirname "$0")"
 
+# Tu dong cai dat dependencies neu chua co node_modules
+if [ ! -d "node_modules" ]; then
+  echo "=================================================="
+  echo " -> Phat hien chua co thu vien node_modules."
+  echo " -> Dang tu dong tai va cai dat cac thu vien can thiet..."
+  echo " -> Viec nay chi thuc hien 1 lan dau tien."
+  echo "=================================================="
+  npm install
+fi
+
 echo "=================================================="
 echo "      KHOI CHAY MACCLEANSE LOCAL (OFFLINE)        "
 echo "=================================================="
