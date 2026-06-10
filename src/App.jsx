@@ -3,6 +3,84 @@ import React, { useState, useEffect } from 'react';
 // API Base URL
 const API_BASE = '/api';
 
+// i18n translations
+const TRANSLATIONS = {
+  vi: {
+    menu_smart_scan:'Quét Thông Minh',section_clean:'DỌN DẸP',menu_system_junk:'Rác Hệ Thống',
+    menu_large_files:'Tập Tin Lớn & Cũ',section_manage:'QUẢN TRỊ',menu_optimization:'Tối Ưu Hóa',
+    menu_maintenance:'Bảo Trì',menu_app_slimmer:'App Slimmer',
+    ram_free:'RAM trống:',disk_free:'Ổ đĩa trống:',disk_total:'Tổng ổ đĩa:',
+    feedback:'Góp ý',
+    smart_scan_title:'Quét Thông Minh',smart_scan_desc:'Khởi chạy phân tích toàn diện rác hệ thống, tệp tin lớn và tình trạng bộ nhớ thiết bị của bạn.',
+    scan:'QUÉT',scanning:'ĐANG QUÉT...',completed:'HOÀN TẤT',cleaning:'ĐANG DỌN...',cleaned:'ĐÃ DỌN XONG',
+    click_to_scan:'Nhấp vào nút để bắt đầu phân tích thiết bị của bạn',
+    junk_card:'Rác Hệ Thống',large_files_card:'Tập Tin Lớn & Cũ',files_unit:'tập tin',
+    memory_ram:'Bộ Nhớ RAM',app_slimmed:'Ứng Dụng Nén',freed_unit:'giải phóng',free_word:'Trống',
+    smart_clean_btn:'Dọn Dẹp Thông Minh',activity_log:'NHẬT KÝ HOẠT ĐỘNG',clear_log:'Xóa log',
+    clean_success:'Hệ thống của bạn đã hoàn toàn sạch sẽ!',back:'Quay lại',
+    sys_junk_title:'Rác Hệ Thống',sys_junk_desc:'Loại bỏ bộ nhớ đệm ứng dụng, tệp tin ghi nhật ký cũ và tệp tin rác của nhà phát triển để lấy lại không gian đĩa.',
+    scan_junk:'Quét Rác',clean_junk:'Làm Sạch Rác Hệ Thống',
+    user_caches:'Bộ Nhớ Đệm Của Ứng Dụng (User Caches)',user_logs:'Nhật Ký Hoạt Động (User Logs)',
+    xcode_derived:'Dữ Liệu Xcode DerivedData (Dành cho Lập trình viên)',sys_trash:'Thùng Rác Hệ Thống (Trash Bins)',
+    large_files_title:'Tập Tin Lớn & Cũ',large_files_desc:'Tìm kiếm và loại bỏ các tệp tin có dung lượng lớn ít khi sử dụng.',
+    scan_large_files:'Quét Tệp Lớn',clean_files:'Dọn Dẹp Tệp',no_large_files:'Không tìm thấy tệp tin lớn nào.',
+    cat_all:'Tất cả',cat_video:'Video',cat_archive:'Lưu trữ',cat_document:'Tài liệu',cat_audio:'Âm thanh',cat_image:'Hình ảnh',cat_other:'Khác',
+    col_file:'Tên tệp',col_path:'Đường dẫn',col_size:'Kích thước',col_modified:'Ngày sửa đổi',col_action:'Hành động',
+    opt_title:'Tối Ưu Hóa Tiến Trình',opt_desc:'Xem và tắt các ứng dụng chạy ngầm đang tiêu tốn nhiều tài nguyên hệ thống.',
+    reload:'Tải Lại',sort_ram:'Sắp xếp theo RAM',sort_cpu:'Sắp xếp theo CPU',
+    col_process:'Tiến trình',col_resources:'Tài nguyên',tip_kill:'Tắt tiến trình',
+    maint_title:'Bảo Trì Hệ Thống',maint_desc:'Thực hiện tối ưu hóa hiệu năng RAM và dọn dẹp DNS.',
+    purge_ram:'Giải Phóng RAM',purge_ram_desc:'Giải phóng bộ nhớ RAM không hoạt động để tăng tốc hệ thống.',
+    run_btn:'Chạy',flush_dns:'Dọn Dẹp DNS Cache',flush_dns_desc:'Xóa bộ nhớ đệm phân giải tên miền DNS để sửa lỗi mạng.',
+    slim_title:'Ứng Dụng Nén (App Slimmer)',slim_desc:'Giảm dung lượng ứng dụng bằng cách nén in-place hoặc giải phóng sang dạng stub tự phục hồi.',
+    search_app:'Tìm kiếm ứng dụng...',
+    filter_all:'Tất cả ứng dụng',filter_slimmable:'Có thể nén',filter_offloaded:'Đã giải phóng (Stub)',filter_running:'Đang chạy',filter_system:'Ứng dụng hệ thống',
+    col_app:'Tên ứng dụng',col_phys:'Kích thước thực',col_log:'Kích thước ảo',col_cache:'Cache ẩn',col_status:'Trạng thái',
+    scanning_apps:'Đang quét danh sách ứng dụng...',no_apps:'Không tìm thấy ứng dụng nào.',
+    badge_system:'Hệ thống',badge_compressed:'Đã nén',badge_stub:'Đã giải phóng',badge_running:'Đang chạy',
+    tip_compress:'Nén ứng dụng trực tiếp',tip_offload:'Giải phóng dung lượng (lưu trữ zip + stub)',tip_restore:'Phục hồi ứng dụng về gốc',tip_clean:'Xóa Caches',tip_uninstall:'Gỡ cài đặt hoàn toàn',
+    confirm_title:'Xác Nhận Hành Động',cancel_btn:'Hủy',confirm_btn:'Xác nhận',
+    col_log_actions:'NHẬT KÝ HOẠT ĐỘNG',
+  },
+  en: {
+    menu_smart_scan:'Smart Scan',section_clean:'CLEANUP',menu_system_junk:'System Junk',
+    menu_large_files:'Large & Old Files',section_manage:'ADMINISTRATION',menu_optimization:'Optimization',
+    menu_maintenance:'Maintenance',menu_app_slimmer:'App Slimmer',
+    ram_free:'Free RAM:',disk_free:'Free Disk:',disk_total:'Total Disk:',
+    feedback:'Feedback',
+    smart_scan_title:'Smart Scan',smart_scan_desc:'Launch a comprehensive analysis of system junk, large files, and device memory status.',
+    scan:'SCAN',scanning:'SCANNING...',completed:'COMPLETED',cleaning:'CLEANING...',cleaned:'CLEANED',
+    click_to_scan:'Click the button to start analyzing your device',
+    junk_card:'System Junk',large_files_card:'Large & Old Files',files_unit:'files',
+    memory_ram:'System RAM',app_slimmed:'Compressed Apps',freed_unit:'freed',free_word:'Free',
+    smart_clean_btn:'Smart Clean',activity_log:'ACTIVITY LOG',clear_log:'Clear log',
+    clean_success:'Your system is completely clean!',back:'Back',
+    sys_junk_title:'System Junk',sys_junk_desc:'Remove application caches, old log files and developer junk to reclaim disk space.',
+    scan_junk:'Scan Junk',clean_junk:'Clean System Junk',
+    user_caches:'User Application Caches',user_logs:'User Activity Logs',
+    xcode_derived:'Xcode DerivedData (for developers)',sys_trash:'System Trash Bins',
+    large_files_title:'Large & Old Files',large_files_desc:'Find and remove large, rarely used files.',
+    scan_large_files:'Scan Large Files',clean_files:'Clean Files',no_large_files:'No large files found.',
+    cat_all:'All',cat_video:'Video',cat_archive:'Archives',cat_document:'Documents',cat_audio:'Audio',cat_image:'Images',cat_other:'Other',
+    col_file:'File name',col_path:'Path',col_size:'Size',col_modified:'Date modified',col_action:'Action',
+    opt_title:'Process Optimization',opt_desc:'View and terminate background apps consuming high system resources.',
+    reload:'Reload',sort_ram:'Sort by RAM',sort_cpu:'Sort by CPU',
+    col_process:'Process',col_resources:'Resources',tip_kill:'Kill process',
+    maint_title:'System Maintenance',maint_desc:'Optimize RAM performance and flush DNS cache.',
+    purge_ram:'Purge RAM',purge_ram_desc:'Release inactive RAM to speed up the system.',
+    run_btn:'Run',flush_dns:'Flush DNS Cache',flush_dns_desc:'Clear DNS resolution cache to fix network issues.',
+    slim_title:'App Slimmer',slim_desc:'Reduce app size via in-place compression or offloading to self-restoring stubs.',
+    search_app:'Search apps...',
+    filter_all:'All apps',filter_slimmable:'Compressible',filter_offloaded:'Offloaded (Stub)',filter_running:'Running',filter_system:'System apps',
+    col_app:'App name',col_phys:'Physical size',col_log:'Logical size',col_cache:'Hidden cache',col_status:'Status',
+    scanning_apps:'Scanning application list...',no_apps:'No applications found.',
+    badge_system:'System',badge_compressed:'Compressed',badge_stub:'Offloaded',badge_running:'Running',
+    tip_compress:'Compress app in-place',tip_offload:'Offload (zip archive + stub)',tip_restore:'Restore to original',tip_clean:'Clean Cache',tip_uninstall:'Uninstall completely',
+    confirm_title:'Confirm Action',cancel_btn:'Cancel',confirm_btn:'Confirm',
+    col_log_actions:'ACTIVITY LOG',
+  }
+};
+
 // Format bytes to readable string (e.g. GB, MB, KB)
 const formatBytes = (bytes, decimals = 2) => {
   if (bytes === undefined || bytes === null || bytes === 0) return '0 Bytes';
@@ -84,6 +162,9 @@ const Icons = {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('smart_scan');
+  const [lang, setLang] = useState(() => localStorage.getItem('lang') || 'vi');
+  const t = (key) => (TRANSLATIONS[lang] || TRANSLATIONS.vi)[key] || key;
+  const toggleLang = () => { const nl = lang === 'vi' ? 'en' : 'vi'; localStorage.setItem('lang', nl); setLang(nl); };
   
   // State
   const [loading, setLoading] = useState(false);
@@ -555,34 +636,34 @@ export default function App() {
           <ul className="sidebar-menu">
             <li>
               <a className={`menu-item ${activeTab === 'smart_scan' ? 'active' : ''}`} onClick={() => setActiveTab('smart_scan')}>
-                <Icons.Radar /> Quét Thông Minh
+                <Icons.Radar /> {t('menu_smart_scan')}
               </a>
             </li>
-            <div style={{ margin: '10px 0 5px 12px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase' }}>Dọn Dẹp</div>
+            <div style={{ margin: '10px 0 5px 12px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('section_clean')}</div>
             <li>
               <a className={`menu-item ${activeTab === 'system_junk' ? 'active' : ''}`} onClick={() => setActiveTab('system_junk')}>
-                <Icons.Junk /> Rác Hệ Thống
+                <Icons.Junk /> {t('menu_system_junk')}
               </a>
             </li>
             <li>
               <a className={`menu-item ${activeTab === 'large_files' ? 'active' : ''}`} onClick={() => setActiveTab('large_files')}>
-                <Icons.LargeFiles /> Tập Tin Lớn & Cũ
+                <Icons.LargeFiles /> {t('menu_large_files')}
               </a>
             </li>
-            <div style={{ margin: '10px 0 5px 12px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase' }}>Quản Trị</div>
+            <div style={{ margin: '10px 0 5px 12px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('section_manage')}</div>
             <li>
               <a className={`menu-item ${activeTab === 'optimization' ? 'active' : ''}`} onClick={() => setActiveTab('optimization')}>
-                <Icons.Optimization /> Tối Ưu Hóa
+                <Icons.Optimization /> {t('menu_optimization')}
               </a>
             </li>
             <li>
               <a className={`menu-item ${activeTab === 'maintenance' ? 'active' : ''}`} onClick={() => setActiveTab('maintenance')}>
-                <Icons.Maintenance /> Bảo Trì
+                <Icons.Maintenance /> {t('menu_maintenance')}
               </a>
             </li>
             <li>
               <a className={`menu-item ${activeTab === 'app_slimmer' ? 'active' : ''}`} onClick={() => setActiveTab('app_slimmer')}>
-                <Icons.AppSlimmer /> App Slimmer
+                <Icons.AppSlimmer /> {t('menu_app_slimmer')}
               </a>
             </li>
           </ul>
@@ -591,15 +672,15 @@ export default function App() {
         {/* Memory status widget */}
         <div className="glass-panel" style={{ padding: '15px', fontSize: '13px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>RAM trống:</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{t('ram_free')}</span>
             <span style={{ color: 'var(--accent-cyan)', fontWeight: 'bold' }}>{formatBytes(systemStats.ramFree || 0)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Ổ đĩa trống:</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{t('disk_free')}</span>
             <span style={{ color: 'var(--text-primary)', fontWeight: 'bold' }}>{formatBytes(systemStats.free)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Tổng ổ đĩa:</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{t('disk_total')}</span>
             <span style={{ color: 'var(--text-primary)' }}>{formatBytes(systemStats.occupied)} / {formatBytes(systemStats.total)}</span>
           </div>
         </div>
@@ -607,6 +688,15 @@ export default function App() {
 
       {/* Main Dashboard Panel */}
       <main className="main-content">
+        {/* Top bar: language toggle + feedback */}
+        <div className="top-bar">
+          <button id="lang-toggle-btn" className="top-bar-btn" onClick={toggleLang} title="Switch language">
+            {lang === 'vi' ? '🇬🇧 EN' : '🇻🇳 VI'}
+          </button>
+          <a id="feedback-btn" className="top-bar-btn" href="mailto:vietdohoang.work@gmail.com?subject=MacCleanse%20Local%20Feedback" title="Send feedback">
+            ✉ {t('feedback')}
+          </a>
+        </div>
         
         {/* ========================================== */}
         {/* TAB 1: SMART SCAN (QUÉT THÔNG MINH)        */}
@@ -615,8 +705,8 @@ export default function App() {
           <div>
             <header className="header">
               <div className="header-title">
-                <h1>Quét Thông Minh</h1>
-                <p>Khởi chạy phân tích toàn diện rác hệ thống, tệp tin lớn và tình trạng bộ nhớ thiết bị của bạn.</p>
+                <h1>{t('smart_scan_title')}</h1>
+                <p>{t('smart_scan_desc')}</p>
               </div>
             </header>
 
@@ -628,16 +718,16 @@ export default function App() {
               >
                 <div className="scan-radar-glow" />
                 <div className="scan-radar-inner">
-                  {scanState === 'idle' && 'QUÉT'}
-                  {scanState === 'scanning' && 'ĐANG QUÉT...'}
-                  {scanState === 'scanned' && 'HOÀN TẤT'}
-                  {scanState === 'cleaning' && 'ĐANG DỌN...'}
-                  {scanState === 'cleaned' && 'ĐÃ DỌN Xong'}
+                  {scanState === 'idle' && t('scan')}
+                  {scanState === 'scanning' && t('scanning')}
+                  {scanState === 'scanned' && t('completed')}
+                  {scanState === 'cleaning' && t('cleaning')}
+                  {scanState === 'cleaned' && t('cleaned')}
                 </div>
               </div>
 
               {scanState === 'idle' && (
-                <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>Nhấp vào nút để bắt đầu phân tích thiết bị của bạn</p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>{t('click_to_scan')}</p>
               )}
 
               {/* Smart Scan cards review row */}
@@ -645,7 +735,7 @@ export default function App() {
                 <div className="scan-cards-row">
                   <div className={`glass-panel scan-detail-card ${totalSystemJunk > 0 ? 'warning' : 'ready'}`}>
                     <div className="icon-holder"><Icons.Junk /></div>
-                    <div style={{ fontWeight: '600' }}>Rác Hệ Thống</div>
+                    <div style={{ fontWeight: '600' }}>{t('junk_card')}</div>
                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
                       {loading ? '...' : formatBytes(totalSystemJunk)}
                     </div>
@@ -653,25 +743,25 @@ export default function App() {
 
                   <div className={`glass-panel scan-detail-card ${largeFiles.length > 0 ? 'warning' : 'ready'}`}>
                     <div className="icon-holder"><Icons.LargeFiles /></div>
-                    <div style={{ fontWeight: '600' }}>Tập Tin Lớn & Cũ</div>
+                    <div style={{ fontWeight: '600' }}>{t('large_files_card')}</div>
                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                      {loading ? '...' : `${largeFiles.length} tập tin`}
+                      {loading ? '...' : `${largeFiles.length} ${t('files_unit')}`}
                     </div>
                   </div>
 
                   <div className="glass-panel scan-detail-card ready">
                     <div className="icon-holder"><Icons.Memory /></div>
-                    <div style={{ fontWeight: '600' }}>Bộ Nhớ RAM</div>
+                    <div style={{ fontWeight: '600' }}>{t('memory_ram')}</div>
                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--accent-cyan)' }}>
-                      {formatBytes(systemStats.ramFree || 0)} Trống
+                      {formatBytes(systemStats.ramFree || 0)} {t('free_word')}
                     </div>
                   </div>
 
                   <div className="glass-panel scan-detail-card ready">
                     <div className="icon-holder"><Icons.AppSlimmer /></div>
-                    <div style={{ fontWeight: '600' }}>Ứng Dụng Nén</div>
+                    <div style={{ fontWeight: '600' }}>{t('app_slimmed')}</div>
                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--accent-purple)' }}>
-                      {apps.filter(a => a.isStub).length} giải phóng
+                      {apps.filter(a => a.isStub).length} {t('freed_unit')}
                     </div>
                   </div>
                 </div>
@@ -685,14 +775,14 @@ export default function App() {
                   onClick={cleanEverythingSmart}
                   disabled={actionInProgress}
                 >
-                  Dọn Dẹp Thông Minh ({formatBytes(totalSystemJunk)})
+                  {t('smart_clean_btn')} ({formatBytes(totalSystemJunk)})
                 </button>
               )}
 
               {scanState === 'cleaned' && (
                 <div style={{ textAlign: 'center' }}>
-                  <h3 style={{ color: 'var(--color-success)', marginBottom: '10px' }}>Hệ thống của bạn đã hoàn toàn sạch sẽ!</h3>
-                  <button className="btn-secondary" onClick={() => setScanState('idle')}>Quay lại</button>
+                  <h3 style={{ color: 'var(--color-success)', marginBottom: '10px' }}>{t('clean_success')}</h3>
+                  <button className="btn-secondary" onClick={() => setScanState('idle')}>{t('back')}</button>
                 </div>
               )}
             </div>
@@ -706,8 +796,8 @@ export default function App() {
           <div>
             <header className="header">
               <div className="header-title">
-                <h1>Rác Hệ Thống</h1>
-                <p>Loại bỏ bộ nhớ đệm ứng dụng, tệp tin ghi nhật ký cũ và tệp tin rác của nhà phát triển để lấy lại không gian đĩa.</p>
+                <h1>{t('sys_junk_title')}</h1>
+                <p>{t('sys_junk_desc')}</p>
               </div>
             </header>
 
@@ -723,7 +813,7 @@ export default function App() {
                     <span className="checkmark" />
                   </label>
                   <div>
-                    <div className="junk-title">Bộ Nhớ Đệm Của Ứng Dụng (User Caches)</div>
+                    <div className="junk-title">{t('user_caches')}</div>
                     <div className="junk-path">~/Library/Caches</div>
                   </div>
                 </div>
@@ -741,7 +831,7 @@ export default function App() {
                     <span className="checkmark" />
                   </label>
                   <div>
-                    <div className="junk-title">Nhật Ký Hoạt Động (User Logs)</div>
+                    <div className="junk-title">{t('user_logs')}</div>
                     <div className="junk-path">~/Library/Logs</div>
                   </div>
                 </div>
@@ -759,7 +849,7 @@ export default function App() {
                     <span className="checkmark" />
                   </label>
                   <div>
-                    <div className="junk-title">Dữ Liệu Xcode DerivedData (Dành cho Lập trình viên)</div>
+                    <div className="junk-title">{t('xcode_derived')}</div>
                     <div className="junk-path">~/Library/Developer/Xcode/DerivedData</div>
                   </div>
                 </div>
@@ -777,7 +867,7 @@ export default function App() {
                     <span className="checkmark" />
                   </label>
                   <div>
-                    <div className="junk-title">Thùng Rác Hệ Thống (Trash Bins)</div>
+                    <div className="junk-title">{t('sys_trash')}</div>
                     <div className="junk-path">~/.Trash</div>
                   </div>
                 </div>
@@ -790,7 +880,7 @@ export default function App() {
               onClick={() => cleanJunk(false)}
               disabled={actionInProgress || (!selectedJunk.caches && !selectedJunk.logs && !selectedJunk.xcode && !selectedJunk.trash)}
             >
-              Làm Sạch Rác Hệ Thống
+              {t('clean_junk')}
             </button>
           </div>
         )}
@@ -802,8 +892,8 @@ export default function App() {
           <div>
             <header className="header">
               <div className="header-title">
-                <h1>Tập Tin Lớn & Cũ</h1>
-                <p>Khám phá các file chiếm dụng dung lượng lớn nhất trong Downloads, Documents, Desktop, Movies...</p>
+                <h1>{t('large_files_title')}</h1>
+                <p>{t('large_files_desc')}</p>
               </div>
             </header>
 
@@ -870,7 +960,7 @@ export default function App() {
                         <th>Kích Thước</th>
                         <th>Lần Cuối Sửa</th>
                         <th>Đường Dẫn</th>
-                        <th style={{ textAlign: 'right' }}>Thao tác</th>
+                        <th style={{ textAlign: 'right' }}>{t('col_action')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -923,7 +1013,7 @@ export default function App() {
           <div>
             <header className="header">
               <div className="header-title">
-                <h1>Tối Ưu Hóa Tiến Trình</h1>
+                <h1>{t('opt_title')}</h1>
                 <p>Theo dõi và chấm dứt các ứng dụng/tiến trình đang chạy ngầm gây tốn CPU & RAM làm chậm máy Mac của bạn.</p>
               </div>
               <button className="btn-secondary" onClick={() => loadTabData('optimization')} disabled={loading}>
@@ -996,7 +1086,7 @@ export default function App() {
           <div>
             <header className="header">
               <div className="header-title">
-                <h1>Bảo Trì Hệ Thống</h1>
+                <h1>{t('maint_title')}</h1>
                 <p>Chạy các script bảo trì để phục hồi hiệu suất và tốc độ phản hồi gốc của hệ điều hành macOS.</p>
               </div>
             </header>
@@ -1046,8 +1136,8 @@ export default function App() {
           <div>
             <header className="header">
               <div className="header-title">
-                <h1>App Slimmer</h1>
-                <p>Nén các ứng dụng dung lượng lớn trực tiếp hoặc giải phóng chúng thành các stub 12 KB tự động khôi phục khi nhấp đúp.</p>
+                <h1>{t('slim_title')}</h1>
+                <p>{t('slim_desc')}</p>
               </div>
               <button className="btn-secondary" onClick={() => loadTabData('app_slimmer')} disabled={loading}>
                 <Icons.Refresh className={loading ? 'spinner' : ''} /> Quét Lại
@@ -1060,18 +1150,18 @@ export default function App() {
                 <Icons.Search />
                 <input 
                   type="text" 
-                  placeholder="Tìm kiếm ứng dụng..." 
+                  placeholder={t('search_app')} 
                   value={appSearch}
                   onChange={(e) => setAppSearch(e.target.value)}
                 />
               </div>
               
               <div className="filters">
-                <button className={`btn-filter ${appFilter === 'all' ? 'active' : ''}`} onClick={() => setAppFilter('all')}>Tất cả</button>
-                <button className={`btn-filter ${appFilter === 'slimmable' ? 'active' : ''}`} onClick={() => setAppFilter('slimmable')}>Có thể Slim</button>
-                <button className={`btn-filter ${appFilter === 'offloaded' ? 'active' : ''}`} onClick={() => setAppFilter('offloaded')}>Đã giải phóng</button>
-                <button className={`btn-filter ${appFilter === 'running' ? 'active' : ''}`} onClick={() => setAppFilter('running')}>Đang chạy</button>
-                <button className={`btn-filter ${appFilter === 'system' ? 'active' : ''}`} onClick={() => setAppFilter('system')}>Hệ thống</button>
+                <button className={`btn-filter ${appFilter === 'all' ? 'active' : ''}`} onClick={() => setAppFilter('all')}>{t('cat_all')}</button>
+                <button className={`btn-filter ${appFilter === 'slimmable' ? 'active' : ''}`} onClick={() => setAppFilter('slimmable')}>{t('filter_slimmable')}</button>
+                <button className={`btn-filter ${appFilter === 'offloaded' ? 'active' : ''}`} onClick={() => setAppFilter('offloaded')}>{t('filter_offloaded')}</button>
+                <button className={`btn-filter ${appFilter === 'running' ? 'active' : ''}`} onClick={() => setAppFilter('running')}>{t('filter_running')}</button>
+                <button className={`btn-filter ${appFilter === 'system' ? 'active' : ''}`} onClick={() => setAppFilter('system')}>{t('filter_system')}</button>
                 
                 {selectedApps.size > 0 && (
                   <div style={{ display: 'flex', gap: '8px', marginLeft: '15px', borderLeft: '1px solid var(--glass-border)', paddingLeft: '15px' }}>
@@ -1118,11 +1208,11 @@ export default function App() {
                           <span className="checkmark" />
                         </label>
                       </th>
-                      <th>Tên Ứng Dụng</th>
-                      <th>Dung Lượng Bộ Cài</th>
-                      <th>Dung Lượng Ẩn (Cache/Data)</th>
-                      <th>Lần Cuối Mở</th>
-                      <th>Trạng Thái</th>
+                      <th>{t('col_app')}</th>
+                      <th>{t('col_phys')}</th>
+                      <th>{t('col_cache')}</th>
+                      <th>{t('col_modified')}</th>
+                      <th>{t('col_status')}</th>
                       <th style={{ textAlign: 'right' }}>Thao tác</th>
                     </tr>
                   </thead>
@@ -1166,9 +1256,9 @@ export default function App() {
                         <td>{formatTimeAgo(app.lastUsed)}</td>
                         <td>
                           <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                            {app.isSystem && <span className="badge badge-system">Hệ thống</span>}
-                            {app.isRunning && <span className="badge badge-running">Đang chạy</span>}
-                            {app.isStub && <span className="badge badge-stub">Đã giải phóng</span>}
+                            {app.isSystem && <span className="badge badge-system">{t('badge_system')}</span>}
+                            {app.isRunning && <span className="badge badge-running">{t('badge_running')}</span>}
+                            {app.isStub && <span className="badge badge-stub">{t('badge_stub')}</span>}
                           </div>
                         </td>
                         <td style={{ textAlign: 'right' }}>
@@ -1176,7 +1266,7 @@ export default function App() {
                             {!app.isSystem && !app.isStub && (
                               <button 
                                 className="btn-action-icon" 
-                                title="Nén bằng APFS"
+                                title={t('tip_compress')}
                                 onClick={() => openConfirmationModal('compress', app)}
                                 disabled={app.isRunning || actionInProgress}
                               >
@@ -1187,7 +1277,7 @@ export default function App() {
                             {!app.isSystem && !app.isStub && (
                               <button 
                                 className="btn-action-icon" 
-                                title="Giải phóng dung lượng (lưu trữ zip + stub)"
+                                title={t('tip_offload')}
                                 onClick={() => openConfirmationModal('offload', app)}
                                 disabled={app.isRunning || actionInProgress}
                               >
@@ -1198,7 +1288,7 @@ export default function App() {
                             {app.isStub && (
                               <button 
                                 className="btn-action-icon" 
-                                title="Phục hồi ứng dụng về gốc"
+                                title={t('tip_restore')}
                                 onClick={() => handleAppAction('restore', app)}
                                 disabled={actionInProgress}
                                 style={{ color: 'var(--accent-cyan)', borderColor: 'rgba(0, 245, 212, 0.2)' }}
@@ -1210,7 +1300,7 @@ export default function App() {
                             {app.cacheSize > 0 && (
                               <button 
                                 className="btn-action-icon" 
-                                title="Dọn dẹp Dữ liệu & Cache ẩn"
+                                title={t('tip_clean')}
                                 onClick={() => handleAppAction('clean', app)}
                                 disabled={actionInProgress}
                               >
@@ -1221,7 +1311,7 @@ export default function App() {
                             {!app.isSystem && (
                               <button 
                                 className="btn-action-icon danger" 
-                                title="Gỡ cài đặt hoàn toàn"
+                                title={t('tip_uninstall')}
                                 onClick={() => openConfirmationModal('uninstall', app)}
                                 disabled={app.isRunning || actionInProgress}
                               >
@@ -1242,8 +1332,8 @@ export default function App() {
         {/* Live Event Console Logger (Standard for all tabs) */}
         <section className="glass-panel console-panel">
           <div className="console-header">
-            <span className="console-title"><Icons.Terminal /> Nhật ký hoạt động</span>
-            <button className="btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => setLogs([])}>Xóa logs</button>
+            <span className="console-title"><Icons.Terminal /> {t('activity_log')}</span>
+            <button className="btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => setLogs([])}>{t('clear_log')}</button>
           </div>
           <div className="console-logs">
             {logs.length === 0 ? (
