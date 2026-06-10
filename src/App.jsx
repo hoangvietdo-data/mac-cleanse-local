@@ -89,7 +89,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [actionInProgress, setActionInProgress] = useState(false);
   const [logs, setLogs] = useState([]);
-  const [systemStats, setSystemStats] = useState({ total: 0, occupied: 0, free: 0 });
+  const [systemStats, setSystemStats] = useState({ total: 0, occupied: 0, free: 0, ramTotal: 0, ramFree: 0 });
   const [modal, setModal] = useState({ isOpen: false, type: '', data: null });
 
   // Tab 1: Smart Scan States
@@ -591,11 +591,15 @@ export default function App() {
         {/* Memory status widget */}
         <div className="glass-panel" style={{ padding: '15px', fontSize: '13px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Khả dụng:</span>
-            <span style={{ color: 'var(--accent-cyan)', fontWeight: 'bold' }}>{formatBytes(systemStats.free)}</span>
+            <span style={{ color: 'var(--text-secondary)' }}>RAM trống:</span>
+            <span style={{ color: 'var(--accent-cyan)', fontWeight: 'bold' }}>{formatBytes(systemStats.ramFree || 0)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>Ổ đĩa trống:</span>
+            <span style={{ color: 'var(--text-primary)', fontWeight: 'bold' }}>{formatBytes(systemStats.free)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Ổ đĩa:</span>
+            <span style={{ color: 'var(--text-secondary)' }}>Tổng ổ đĩa:</span>
             <span style={{ color: 'var(--text-primary)' }}>{formatBytes(systemStats.occupied)} / {formatBytes(systemStats.total)}</span>
           </div>
         </div>
@@ -659,7 +663,7 @@ export default function App() {
                     <div className="icon-holder"><Icons.Memory /></div>
                     <div style={{ fontWeight: '600' }}>Bộ Nhớ RAM</div>
                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--accent-cyan)' }}>
-                      {formatBytes(systemStats.free)} Trống
+                      {formatBytes(systemStats.ramFree || 0)} Trống
                     </div>
                   </div>
 

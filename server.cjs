@@ -838,22 +838,52 @@ app.post('/api/maintenance/ram', (req, res) => {
   }
 });
 
-// System Stats (disk space)
+// System Stats (disk space & RAM stats)
 app.get('/api/system-stats', (req, res) => {
   try {
     const dfOut = execSync('df -k /', { stdio: ['pipe', 'pipe', 'ignore'] }).toString();
     const lines = dfOut.trim().split('\n');
+    let totalDisk = 0, occupiedDisk = 0, freeDisk = 0;
     if (lines.length >= 2) {
       const parts = lines[1].replace(/\s+/g, ' ').split(' ');
-      const total = parseInt(parts[1], 10) * 1024; // KB to Bytes
-      const occupied = parseInt(parts[2], 10) * 1024;
-      const free = parseInt(parts[3], 10) * 1024;
-      return res.json({ total, occupied, free });
+      totalDisk = parseInt(parts[1], 10) * 1024; // KB to Bytes
+      occupiedDisk = parseInt(parts[2], 10) * 1024;
+      freeDisk = parseInt(parts[3], 10) * 1024;
     }
+
+    // Get real RAM info
+    const totalRam = os.totalmem();
+    let freeRam = os.freemem();
+    
+    // Use vm_stat for accurate macOS free memory calculation
+    try {
+      const vmstat = execSync('vm_stat', { stdio: ['pipe', 'pipe', 'ignore'] }).toString();
+      const pageSizeMatch = vmstat.match(/page size of (\d+) bytes/);
+      const pageSize = pageSizeMatch ? parseInt(pageSizeMatch[1], 10) : 4096;
+      
+      const getPages = (name) => {
+        const match = vmstat.match(new RegExp(`${name}:\\s+(\\d+)`));
+        return match ? parseInt(match[1], 10) : 0;
+      };
+      
+      const freePages = getPages('Pages free');
+      const speculativePages = getPages('Pages speculative');
+      const inactivePages = getPages('Pages inactive');
+      
+      freeRam = (freePages + speculativePages + inactivePages) * pageSize;
+    } catch (err) {}
+
+    return res.json({ 
+      total: totalDisk, 
+      occupied: occupiedDisk, 
+      free: freeDisk,
+      ramTotal: totalRam,
+      ramFree: freeRam
+    });
   } catch (e) {
-    console.error('Failed to get disk stats:', e.message);
+    console.error('Failed to get system stats:', e.message);
   }
-  res.json({ total: 0, occupied: 0, free: 0 });
+  res.json({ total: 0, occupied: 0, free: 0, ramTotal: 0, ramFree: 0 });
 });
 
 app.listen(PORT, '127.0.0.1', () => {
