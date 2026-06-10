@@ -1,4 +1,4 @@
-# AppSlimmer & CleanMyMac Web - macOS Storage Optimizer
+# MacCleanse Local
 
 Ứng dụng web cục bộ (Local Web App) giúp tối ưu hóa dung lượng ổ đĩa macOS bằng cách nén ứng dụng in-place với công nghệ APFS, giải phóng (offload) tự động các ứng dụng ít sử dụng, quét dung lượng ẩn và dọn dẹp hệ thống.
 
