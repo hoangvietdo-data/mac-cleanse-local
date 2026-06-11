@@ -1,33 +1,116 @@
-.github-stars-btn {
+/* Base styles - Matched to GlassButton sm */
+[data-github-stars-button=""] {
+  position: relative;
+  display: inline-flex;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: none;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+[data-github-stars-button=""]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+/* Variants - Flat colors matching GlassButton */
+[data-github-stars-button=""][data-variant="default"] {
+  background-color: #171717;
+  color: #ffffff;
+}
+[data-github-stars-button=""][data-variant="default"]:hover {
+  background-color: #262626;
+}
+
+[data-theme="light"] [data-github-stars-button=""][data-variant="default"] {
+  background-color: #e5e5e7;
+  color: #0a0a0a;
+}
+[data-theme="light"] [data-github-stars-button=""][data-variant="default"]:hover {
+  background-color: #d1d1d6;
+}
+
+/* Shimmer overlay - Disabled */
+.gs-shimmer {
+  display: none !important;
+}
+
+/* Content layout */
+.gs-content {
+  position: relative;
+  z-index: 10;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  text-decoration: none;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-secondary);
-  border: 1px solid var(--glass-border);
-  transition: all 0.2s;
-  backdrop-filter: blur(10px);
+  gap: 8px;
 }
 
-.github-stars-btn:hover {
-  background: var(--border-color-hover);
-  border-color: var(--border-color-hover);
-  color: var(--text-primary);
-  transform: translateY(-1px);
+/* Divider */
+.gs-divider {
+  width: 1px;
+  height: 12px;
+  background-color: rgba(255, 255, 255, 0.15);
+}
+[data-theme="light"] .gs-divider {
+  background-color: rgba(0, 0, 0, 0.12);
 }
 
-.github-icon {
-  width: 14px;
-  height: 14px;
+/* Counter */
+.gs-count-default {
+  color: #8e8e93;
+  font-family: var(--font-family);
+  font-size: 11px;
+  min-width: 20px;
+  display: inline-flex;
+  justify-content: flex-end;
+}
+[data-github-stars-button=""]:hover .gs-count-default {
+  color: #ffffff;
+}
+[data-theme="light"] .gs-count-default {
+  color: #68686e;
+}
+[data-theme="light"] [data-github-stars-button=""]:hover .gs-count-default {
+  color: #0a0a0a;
 }
 
-.github-count {
-  padding-left: 6px;
-  border-left: 1px solid var(--border-color-hover);
-  color: var(--text-secondary);
+/* Star fill default color (flat normally, yellow on group-hover) */
+.star-fill-default {
+  fill: currentColor !important;
+  color: currentColor !important;
+  opacity: 0.6;
+  transition: color 0.3s, fill 0.3s, opacity 0.3s;
+}
+
+.group:hover .star-fill-default {
+  fill: #eab308 !important;
+  color: #eab308 !important;
+  opacity: 1 !important;
+}
+
+/* Label grid swap */
+.gs-label-grid {
+  position: relative;
+  display: inline-grid;
+  overflow: hidden;
+}
+.gs-label-grid-default {
+  grid-column: 1;
+  grid-row: 1;
+}
+.gs-label-grid-hover {
+  display: none !important;
+}
+.gs-overlay-full {
+  display: none !important;
 }

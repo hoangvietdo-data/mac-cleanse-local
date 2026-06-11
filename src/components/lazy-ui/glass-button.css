@@ -1,0 +1,86 @@
+.glass-btn-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.glass-btn-element {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px; /* rounded-xl */
+  border: none;
+  background-color: #171717; /* Dark mode background */
+  color: #ffffff; /* Dark mode text */
+  font-weight: 500;
+  transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.1s ease;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.glass-btn-element:hover:not(:disabled) {
+  background-color: #262626; /* slightly lighter gray on hover */
+}
+
+.glass-btn-element:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.glass-btn-element:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.glass-btn-element:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Size classes */
+.glass-btn-size-sm {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.glass-btn-size-md {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
+}
+
+.glass-btn-size-lg {
+  height: 48px;
+  padding: 0 24px;
+  font-size: 15px;
+}
+
+.glass-btn-text {
+  letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Light mode style overrides */
+html:not(.dark) .glass-btn-element,
+:root[data-theme="light"] .glass-btn-element {
+  background-color: #e5e5e7; /* Light mode background */
+  color: #0a0a0a; /* Light mode text */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+html:not(.dark) .glass-btn-element:hover:not(:disabled),
+:root[data-theme="light"] .glass-btn-element:hover:not(:disabled) {
+  background-color: #d1d1d6; /* slightly darker gray on hover */
+}
+
+html:not(.dark) .glass-btn-element:focus-visible,
+:root[data-theme="light"] .glass-btn-element:focus-visible {
+  outline: 2px solid #000000;
+}

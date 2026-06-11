@@ -1,24 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:ital,wght@0,100..700;1,100..700&display=swap');
+@import "tailwindcss";
+
 :root {
-  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-tech: -apple-system, BlinkMacSystemFont, "Segoe UI", "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-family: 'Josefin Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-tech: 'Josefin Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --transition-normal: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   --transition-fast: 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Dark Theme Variables */
 :root, [data-theme="dark"] {
-  --bg-color: #000000;
-  --panel-bg: rgba(28, 28, 30, 0.65);
-  --sidebar-bg: rgba(18, 18, 18, 0.85);
-  --border-color: rgba(255, 255, 255, 0.1);
-  --border-color-hover: rgba(255, 255, 255, 0.2);
+  --bg-color: #0a0a0a;
+  --window-bg: #0a0a0a;
+  --panel-bg: #171717;
+  --sidebar-bg: #0a0a0a;
+  --border-color: #262626;
+  --border-color-hover: #404040;
   
   --accent: #ffffff;
-  --accent-glow: rgba(255, 255, 255, 0.1);
+  --accent-glow: rgba(255, 255, 255, 0.05);
   
   --text-primary: #ffffff;
   --text-secondary: #8e8e93;
-  --text-muted: #48484a;
+  --text-muted: #525252;
   
   /* Monochromatic mappings for legacy color tokens */
   --accent-purple: #ffffff;
@@ -40,13 +44,14 @@
 /* Light Theme Variables */
 [data-theme="light"] {
   --bg-color: #f5f5f7;
-  --panel-bg: rgba(255, 255, 255, 0.75);
-  --sidebar-bg: rgba(242, 242, 247, 0.85);
-  --border-color: rgba(0, 0, 0, 0.08);
-  --border-color-hover: rgba(0, 0, 0, 0.16);
+  --window-bg: #f5f5f7;
+  --panel-bg: #ffffff;
+  --sidebar-bg: #f5f5f7;
+  --border-color: #e5e5e7;
+  --border-color-hover: #d1d1d6;
   
   --accent: #000000;
-  --accent-glow: rgba(0, 0, 0, 0.05);
+  --accent-glow: rgba(0, 0, 0, 0.03);
   
   --text-primary: #000000;
   --text-secondary: #68686e;
@@ -76,6 +81,37 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Smooth Theme Transitions */
+.app-container,
+.app-window-frame,
+.flat-card,
+.sidebar,
+.main-content,
+.top-bar,
+.glass-panel,
+.menu-item,
+.btn-primary,
+.btn-secondary,
+.btn-filter,
+.scan-radar,
+.scan-detail-card,
+.junk-item,
+.maintenance-card,
+.large-files-sidebar,
+.large-files-content,
+.console-panel,
+.console-logs,
+.modal-content,
+.app-icon-container,
+.top-bar-btn,
+body,
+:root {
+  transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 body {
   font-family: var(--font-family);
   background-color: var(--bg-color);
@@ -83,7 +119,6 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   position: relative;
-  transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
 /* Scrollbars */
@@ -102,14 +137,12 @@ body {
   background: var(--text-secondary);
 }
 
-/* Glassmorphism Panel (Monochromatic Apple Style) */
+/* Glassmorphism Panel (Redefined as Flat Panel) */
 .glass-panel {
   background: var(--panel-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.08);
   transition: var(--transition-normal);
   transform: translateZ(0); /* Force GPU compositing */
 }
@@ -120,9 +153,35 @@ body {
   transform: scale(1.002);
 }
 
+/* Flat Card Component */
+.flat-card {
+  background-color: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 20px; /* rounded-2xl */
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.05);
+  transition: var(--transition-normal);
+  overflow: hidden;
+}
+
+/* App Window Frame (Unified curved wrapper - border and shadow removed for seamless look) */
+.app-window-frame {
+  display: flex;
+  margin: 20px;
+  width: calc(100vw - 40px);
+  height: calc(100vh - 40px);
+  border-radius: 32px;
+  background-color: var(--window-bg);
+  border: none;
+  overflow: hidden;
+  position: relative;
+  z-index: 10;
+}
+
 /* App Layout */
 .app-container {
   display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 100vh;
   width: 100vw;
   height: 100vh;
@@ -131,95 +190,181 @@ body {
   overflow: hidden;
 }
 
+/* Sidebar - border-right removed and top padding increased to lower menu options */
 .sidebar {
   width: 260px;
   flex-shrink: 0;
-  border-right: 1px solid var(--border-color);
+  border-right: none;
   background: var(--sidebar-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  padding: 30px 20px;
+  padding: 96px 20px 30px; /* Top padding increased from 30px to 96px to push menu options below top-bar */
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: 100vh;
+  height: 100%;
   z-index: 100;
-  box-shadow: 10px 0 30px rgba(0, 0, 0, 0.25);
 }
 
 .main-content {
   flex: 1;
-  padding: 30px 40px 40px;
+  padding: 0 32px 40px; /* Top padding is 0 to allow sticky top-bar to stick directly to top viewport edge */
   box-sizing: border-box;
   overflow-y: auto;
-  height: 100vh;
+  height: 100%;
 }
 
-/* Top bar (lang toggle + feedback) */
+/* Top bar (seamless, full width, sticky, flat background to cover scroll) */
 .top-bar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
+  width: 100%;
+  margin: 0 0 24px 0;
+  padding: 30px 0 16px; /* Added 30px top padding here to preserve initial vertical alignment */
+  background: var(--window-bg);
+  border: none;
+  box-shadow: none;
   position: sticky;
   top: 0;
   z-index: 50;
-  padding: 8px 0;
-}
-.top-bar-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.4px;
-  cursor: pointer;
-  border: 1px solid var(--glass-border);
-  background: rgba(255,255,255,0.06);
-  color: var(--text-secondary);
-  text-decoration: none;
-  transition: all 0.2s;
-  backdrop-filter: blur(10px);
-}
-.top-bar-btn:hover {
-  background: var(--border-color-hover);
-  border-color: var(--border-color-hover);
-  color: var(--text-primary);
-  transform: translateY(-1px);
+  gap: 12px;
 }
 
-/* Brand styling */
-.brand {
+.top-bar-left {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 30px;
-  padding-left: 5px;
+  gap: 16px;
 }
 
-.brand-icon {
-  width: 36px;
-  height: 36px;
-  background: var(--accent);
-  border-radius: 8px;
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px; /* gap-4 spacing */
+}
+
+/* Flat minimalist button override for top bar right buttons */
+.top-bar-flat-btn {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #737373 !important;
+  font-weight: 500 !important;
+  font-size: 14px !important; /* Larger text */
+  transition: color 0.2s ease, opacity 0.2s ease, transform 0.1s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.top-bar-flat-btn:not(.theme-toggle-btn) {
+  padding: 0 8px !important;
+}
+
+.top-bar-flat-btn:hover {
+  background: transparent !important;
+  color: #ffffff !important;
+}
+
+/* Light mode flat buttons style */
+[data-theme="light"] .top-bar-flat-btn {
+  color: #8e8e93 !important;
+}
+
+[data-theme="light"] .top-bar-flat-btn:hover {
+  color: #0a0a0a !important;
+}
+
+.top-bar-brand-container {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Wider gap for larger elements */
+  cursor: pointer;
+  padding: 4px 8px 4px 0 !important; /* Forced to 0 left padding */
+  border-radius: 9999px;
+  transition: opacity 0.2s ease;
+  margin-left: 0 !important;
+}
+
+.top-bar-brand-container:hover {
+  opacity: 0.8;
+}
+
+.top-bar-logo {
+  font-size: 14px; /* Larger logo icon */
+  font-weight: 900;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
-  font-size: 18px;
+  width: 26px; /* Larger logo box */
+  height: 26px;
+  background: var(--text-primary);
   color: var(--bg-color);
-  font-family: var(--font-tech);
+  border-radius: 6px;
 }
 
-.brand-name {
-  font-weight: 800;
-  font-size: 18px;
-  letter-spacing: 0.5px;
+.top-bar-text {
+  font-weight: 700;
+  font-size: 16px; /* Larger brand text */
   color: var(--text-primary);
-  text-transform: uppercase;
+  letter-spacing: -0.2px;
+}
+
+.theme-toggle-btn {
+  width: 36px;
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.border-glow-btn-reset {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.top-bar-btn {
+  position: relative;
+  display: inline-flex;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.045);
+  color: #ffffff;
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.42s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.42s cubic-bezier(0.16, 1, 0.3, 1),
+              color 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.top-bar-btn:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  background-color: rgba(255, 255, 255, 0.075);
+  color: #ffffff;
+}
+
+[data-theme="light"] .top-bar-btn {
+  border-color: rgba(0, 0, 0, 0.08);
+  background-color: #ffffff;
+  color: #0a0a0a;
+}
+
+[data-theme="light"] .top-bar-btn:hover {
+  border-color: rgba(0, 0, 0, 0.16);
+  background-color: rgba(0, 0, 0, 0.04);
+  color: #0a0a0a;
+}
+
+/* Brand styling (Sidebar override) */
+.sidebar .brand {
+  display: none;
 }
 
 /* Sidebar Menu */
@@ -570,7 +715,7 @@ body {
 .app-bundle-id {
   font-size: 10px;
   color: var(--text-secondary);
-  font-family: monospace;
+  font-family: var(--font-family);
   max-width: 280px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -718,16 +863,14 @@ body {
 
 /* Console Log Component */
 .console-panel {
-  padding: 20px;
-  margin-top: 30px;
-  border-left: 3px solid var(--accent);
+  padding: 24px;
 }
 
 .console-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .console-title {
@@ -752,14 +895,13 @@ body {
 }
 
 .console-logs {
-  background: var(--panel-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 16px;
-  font-family: monospace;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: var(--font-family);
   font-size: 11px;
   color: var(--text-primary);
-  max-height: 140px;
+  max-height: 180px;
   overflow-y: auto;
   line-height: 1.6;
 }
@@ -954,7 +1096,7 @@ body {
 .junk-path {
   font-size: 11px;
   color: var(--text-muted);
-  font-family: monospace;
+  font-family: var(--font-family);
 }
 
 /* Maintenance Page Cards */
@@ -1111,9 +1253,7 @@ body {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(3, 2, 5, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.4);
   z-index: 200;
   display: flex;
   align-items: center;
@@ -1125,8 +1265,10 @@ body {
   width: 100%;
   max-width: 480px;
   padding: 30px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--border-color);
+  background-color: var(--panel-bg);
+  border-radius: 20px; /* rounded-2xl */
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -1222,4 +1364,41 @@ body {
 .stagger-item {
   animation: fade-in-slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   opacity: 0;
+}
+
+/* Splash Overlay styles */
+.splash-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--bg-color);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.splash-logo {
+  font-size: 48px;
+  background: var(--text-primary);
+  color: var(--bg-color);
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  font-weight: bold;
+}
+.splash-text-wrapper {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 16px;
+}
+
+/* Theme transition overlay styles */
+.theme-transition-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  pointer-events: none;
 }

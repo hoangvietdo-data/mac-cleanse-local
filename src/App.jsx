@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TextWarp } from "@/components/lazy-ui/text-animate/text-warp";
 import { BorderGlow } from "@/components/lazy-ui/border-glow";
-import { AuroraMesh } from "@/components/lazy-ui/aurora-mesh";
+import { GridBackground } from "@/components/lazy-ui/grid-background";
 import { GithubStarsButton } from "@/components/lazy-ui/github-stars-button";
+import { GlassButton } from "@/components/lazy-ui/glass-button";
+import { TextSpin } from "@/components/lazy-ui/text-spin";
+import { motion } from "motion/react";
 
 // API Base URL
 const API_BASE = '/api';
@@ -169,12 +172,21 @@ export default function App() {
   const [lang, setLang] = useState(() => localStorage.getItem('lang') || 'vi');
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
   
+  const handleThemeToggle = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+  
   const t = (key) => (TRANSLATIONS[lang] || TRANSLATIONS.vi)[key] || key;
   const toggleLang = () => { const nl = lang === 'vi' ? 'en' : 'vi'; localStorage.setItem('lang', nl); setLang(nl); };
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
     localStorage.setItem('theme', theme);
   }, [theme]);
   
@@ -184,6 +196,18 @@ export default function App() {
   const [logs, setLogs] = useState([]);
   const [systemStats, setSystemStats] = useState({ total: 0, occupied: 0, free: 0, ramTotal: 0, ramFree: 0 });
   const [modal, setModal] = useState({ isOpen: false, type: '', data: null });
+  const openConfirmationModal = (type, data) => {
+    setModal({ isOpen: true, type, data });
+  };
+  const [showDonateModal, setShowDonateModal] = useState(false);
+  const [copiedStk, setCopiedStk] = useState(false);
+
+  const handleCopyStk = () => {
+    navigator.clipboard.writeText('19072207783015');
+    setCopiedStk(true);
+    setTimeout(() => setCopiedStk(false), 2000);
+    addLog(lang === 'vi' ? 'Đã sao chép số tài khoản Techcombank: 19072207783015' : 'Copied Techcombank account number: 19072207783015', 'info');
+  };
 
   // Tab 1: Smart Scan States
   const [scanState, setScanState] = useState('idle'); // idle, scanning, scanned, cleaning, cleaned
@@ -459,7 +483,6 @@ export default function App() {
     }
   };
 
-  // Maintenance Actions
   const runMaintenance = async (type) => {
     if (actionInProgress) return;
     setActionInProgress(true);
@@ -471,14 +494,14 @@ export default function App() {
 
     if (type === 'ram') {
       url = `${API_BASE}/maintenance/ram`;
-      startMsg = 'Đang giải phóng bộ nhớ RAM không hoạt động (Purge RAM Cache)...';
-      successMsg = 'RAM đã được dọn sạch hoàn hảo!';
-      errorMsg = 'Giải phóng RAM thất bại.';
+      startMsg = lang === 'vi' ? 'Đang giải phóng bộ nhớ RAM không hoạt động...' : 'Purging inactive RAM memory...';
+      successMsg = lang === 'vi' ? 'RAM đã được giải phóng thành công!' : 'RAM purged successfully!';
+      errorMsg = lang === 'vi' ? 'Giải phóng RAM thất bại.' : 'RAM purge failed.';
     } else if (type === 'dns') {
       url = `${API_BASE}/maintenance/dns`;
-      startMsg = 'Đang xóa cache và khởi động lại dịch vụ DNS resolver...';
-      successMsg = 'Xóa DNS Cache thành công!';
-      errorMsg = 'Xóa DNS Cache thất bại.';
+      startMsg = lang === 'vi' ? 'Đang xóa cache DNS và khởi động lại dịch vụ...' : 'Flushing DNS cache and restarting services...';
+      successMsg = lang === 'vi' ? 'DNS cache đã được xóa thành công!' : 'DNS cache flushed successfully!';
+      errorMsg = lang === 'vi' ? 'Xóa DNS cache thất bại.' : 'DNS cache flush failed.';
     }
 
     addLog(startMsg, 'info');
@@ -490,12 +513,12 @@ export default function App() {
 
       let sizeMsg = '';
       if (type === 'ram' && data.freedSize !== undefined) {
-        sizeMsg = ` (Giải phóng ${formatBytes(data.freedSize)})`;
+        sizeMsg = ` (${lang === 'vi' ? 'Giải phóng' : 'Freed'} ${formatBytes(data.freedSize)})`;
       }
       addLog(`${successMsg}${sizeMsg}`, 'success');
       await fetchSystemStats();
     } catch (e) {
-      addLog(`${errorMsg} Chi tiết: ${e.message}`, 'error');
+      addLog(`${errorMsg} Details: ${e.message}`, 'error');
     } finally {
       setActionInProgress(false);
     }
@@ -647,93 +670,169 @@ export default function App() {
     }
   });
 
-  const auroraColors = theme === 'dark' 
-    ? ["#000000", "#0a0a0a", "#171717", "#262626", "#404040"]
-    : ["#ffffff", "#f5f5f7", "#e5e5ea", "#d1d1d6", "#aeaeb2"];
+  const gridDotColor = theme === 'dark'
+    ? 'rgba(255, 255, 255, 0.05)'
+    : 'rgba(0, 0, 0, 0.04)';
 
   return (
-    <div className="app-container">
-      <AuroraMesh colors={auroraColors} speed={0.2} wireframe={true} mouseFollow={true} ripple={true} className="w-full h-full" />
-      {/* Sidebar Navigation */}
-      <aside className="sidebar">
-        <div>
-          <div className="brand">
-            <div className="brand-icon">▲</div>
-            <div className="brand-name">MacCleanse Local</div>
+    <>
+
+      <div 
+        className="relative w-full h-full min-h-screen overflow-hidden app-container" 
+        style={{ 
+          backgroundColor: 'var(--bg-color)', 
+          color: 'var(--text-primary)',
+        }}
+      >
+        <GridBackground
+          variant="dots"
+          size={24}
+          dotSize={1.2}
+          color={gridDotColor}
+          fade="edges"
+        />
+        <div className="app-window-frame">
+          {/* Sidebar Navigation */}
+          <aside className="sidebar">
+          <div>
+            <ul className="sidebar-menu">
+              <li>
+                <a className={`menu-item ${activeTab === 'smart_scan' ? 'active' : ''}`} onClick={() => setActiveTab('smart_scan')}>
+                  <Icons.Radar /> {t('menu_smart_scan')}
+                </a>
+              </li>
+              <div style={{ margin: '10px 0 5px 12px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('section_clean')}</div>
+              <li>
+                <a className={`menu-item ${activeTab === 'system_junk' ? 'active' : ''}`} onClick={() => setActiveTab('system_junk')}>
+                  <Icons.Junk /> {t('menu_system_junk')}
+                </a>
+              </li>
+              <li>
+                <a className={`menu-item ${activeTab === 'large_files' ? 'active' : ''}`} onClick={() => setActiveTab('large_files')}>
+                  <Icons.LargeFiles /> {t('menu_large_files')}
+                </a>
+              </li>
+              <div style={{ margin: '10px 0 5px 12px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('section_manage')}</div>
+              <li>
+                <a className={`menu-item ${activeTab === 'optimization' ? 'active' : ''}`} onClick={() => setActiveTab('optimization')}>
+                  <Icons.Optimization /> {t('menu_optimization')}
+                </a>
+              </li>
+              <li>
+                <a className={`menu-item ${activeTab === 'maintenance' ? 'active' : ''}`} onClick={() => setActiveTab('maintenance')}>
+                  <Icons.Maintenance /> {t('menu_maintenance')}
+                </a>
+              </li>
+              <li>
+                <a className={`menu-item ${activeTab === 'app_slimmer' ? 'active' : ''}`} onClick={() => setActiveTab('app_slimmer')}>
+                  <Icons.AppSlimmer /> {t('menu_app_slimmer')}
+                </a>
+              </li>
+            </ul>
           </div>
           
-          <ul className="sidebar-menu">
-            <li>
-              <a className={`menu-item ${activeTab === 'smart_scan' ? 'active' : ''}`} onClick={() => setActiveTab('smart_scan')}>
-                <Icons.Radar /> {t('menu_smart_scan')}
-              </a>
-            </li>
-            <div style={{ margin: '10px 0 5px 12px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('section_clean')}</div>
-            <li>
-              <a className={`menu-item ${activeTab === 'system_junk' ? 'active' : ''}`} onClick={() => setActiveTab('system_junk')}>
-                <Icons.Junk /> {t('menu_system_junk')}
-              </a>
-            </li>
-            <li>
-              <a className={`menu-item ${activeTab === 'large_files' ? 'active' : ''}`} onClick={() => setActiveTab('large_files')}>
-                <Icons.LargeFiles /> {t('menu_large_files')}
-              </a>
-            </li>
-            <div style={{ margin: '10px 0 5px 12px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('section_manage')}</div>
-            <li>
-              <a className={`menu-item ${activeTab === 'optimization' ? 'active' : ''}`} onClick={() => setActiveTab('optimization')}>
-                <Icons.Optimization /> {t('menu_optimization')}
-              </a>
-            </li>
-            <li>
-              <a className={`menu-item ${activeTab === 'maintenance' ? 'active' : ''}`} onClick={() => setActiveTab('maintenance')}>
-                <Icons.Maintenance /> {t('menu_maintenance')}
-              </a>
-            </li>
-            <li>
-              <a className={`menu-item ${activeTab === 'app_slimmer' ? 'active' : ''}`} onClick={() => setActiveTab('app_slimmer')}>
-                <Icons.AppSlimmer /> {t('menu_app_slimmer')}
-              </a>
-            </li>
-          </ul>
-        </div>
-        
-        {/* Memory status widget */}
-        <div className="glass-panel" style={{ padding: '15px', fontSize: '13px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>{t('ram_free')}</span>
-            <span style={{ color: 'var(--accent-cyan)', fontWeight: 'bold' }}>{formatBytes(systemStats.ramFree || 0)}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>{t('disk_free')}</span>
-            <span style={{ color: 'var(--text-primary)', fontWeight: 'bold' }}>{formatBytes(systemStats.free)}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>{t('disk_total')}</span>
-            <span style={{ color: 'var(--text-primary)' }}>{formatBytes(systemStats.occupied)} / {formatBytes(systemStats.total)}</span>
-          </div>
-        </div>
-      </aside>
+          <div>
+            {/* Memory status widget */}
+            <div className="glass-panel" style={{ width: '100%', padding: '15px', fontSize: '12px', boxSizing: 'border-box' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', whiteSpace: 'nowrap' }}>
+                <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{t('ram_free')}</span>
+                <span style={{ color: 'var(--accent-cyan)', fontWeight: 'bold', whiteSpace: 'nowrap' }}>{formatBytes(systemStats.ramFree || 0)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', whiteSpace: 'nowrap' }}>
+                <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{t('disk_free')}</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 'bold', whiteSpace: 'nowrap' }}>{formatBytes(systemStats.free)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', whiteSpace: 'nowrap' }}>
+                <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{t('disk_total')}</span>
+                <span style={{ color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{formatBytes(systemStats.occupied)} / {formatBytes(systemStats.total)}</span>
+              </div>
+            </div>
 
-      {/* Main Dashboard Panel */}
-      <main className="main-content">
-        <div className="top-bar">
-          <GithubStarsButton username="zivhdinfo" repo="lazy-ui" />
-          <button 
-            id="donate-btn" 
-            className="top-bar-btn" 
-            onClick={() => addLog(lang === 'vi' ? '❤️ Cảm ơn bạn đã nuôi em!' : '❤️ Thank you for your support!', 'success')}
-            title={lang === 'vi' ? 'Nuôi em' : 'Donate'}
-          >
-            ☕ {lang === 'vi' ? 'Nuôi em' : 'Donate'}
-          </button>
-          <button id="lang-toggle-btn" className="top-bar-btn" onClick={toggleLang} title="Switch language">
-            {lang === 'vi' ? '🇬🇧 EN' : '🇻🇳 VI'}
-          </button>
-          <button id="theme-toggle-btn" className="top-bar-btn" onClick={toggleTheme} title="Switch theme">
-            {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
-          </button>
-        </div>
+          </div>
+        </aside>
+
+        {/* Main Dashboard Panel */}
+        <main className="main-content">
+          <div className="top-bar">
+            <div className="top-bar-left">
+              <motion.div 
+                layoutId="brand-container"
+                className="top-bar-brand-container"
+                onClick={() => setActiveTab('smart_scan')}
+              >
+                <motion.div layoutId="brand-icon" className="top-bar-logo">▲</motion.div>
+                <motion.span layoutId="brand-name" className="top-bar-text">MacCleanse Local</motion.span>
+              </motion.div>
+            </div>
+
+            <div className="top-bar-right">
+              <GlassButton 
+                id="feedback-btn"
+                className="top-bar-flat-btn"
+                onClick={() => window.location.href = 'mailto:vietdohoang.work@gmail.com'}
+                size="sm"
+                tint="cool"
+              >
+                {lang === 'vi' ? 'Góp ý' : 'Feedback'}
+              </GlassButton>
+              <GithubStarsButton 
+                username="hoangvietdo-data" 
+                repo="mac-cleanse-local" 
+                hoverMode="label" 
+                className="top-bar-flat-btn"
+              />
+              <BorderGlow
+                mode="cursor"
+                colors={["#a78bfa", "#f0abfc", "#67e8f9"]}
+                thickness={1.5}
+                radius={9999}
+                cursorRadius={200}
+                coneSpread={58}
+                glowSize={22}
+                intensity={1}
+                bling={true}
+                sparkleCount={8}
+                background={theme === 'light' ? '#e5e5e7' : '#171717'}
+                style={{ display: 'inline-flex', height: '40px', borderRadius: '9999px' }}
+              >
+                <GlassButton 
+                  id="donate-btn"
+                  className="border-glow-btn-reset"
+                  onClick={() => setShowDonateModal(true)}
+                  size="md"
+                  tint="cool"
+                  style={{ height: '100%', border: 'none', background: 'transparent', borderRadius: '9999px', fontSize: '14px' }}
+                >
+                  {lang === 'vi' ? 'Nuôi em' : 'Donate'}
+                </GlassButton>
+              </BorderGlow>
+              <GlassButton 
+                id="lang-toggle-btn"
+                className="top-bar-flat-btn"
+                onClick={toggleLang}
+                size="sm"
+                tint="cool"
+                style={{ minWidth: '40px' }}
+              >
+                {lang === 'vi' ? 'EN' : 'VI'}
+              </GlassButton>
+              <GlassButton 
+                id="theme-toggle-btn"
+                className="top-bar-flat-btn theme-toggle-btn"
+                onClick={handleThemeToggle} 
+                title="Switch theme"
+                size="sm"
+                tint="cool"
+                style={{ width: '40px', height: '40px', padding: 0 }}
+              >
+                {theme === 'light' ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                )}
+              </GlassButton>
+            </div>
+          </div>
         
         {/* ========================================== */}
         {/* TAB 1: SMART SCAN (QUÉT THÔNG MINH)        */}
@@ -770,35 +869,43 @@ export default function App() {
               {/* Smart Scan cards review row */}
               {(scanState === 'scanned' || scanState === 'scanning' || scanState === 'cleaning' || scanState === 'cleaned') && (
                 <div className="scan-cards-row">
-                  <div className={`glass-panel scan-detail-card ${totalSystemJunk > 0 ? 'warning' : 'ready'} stagger-item`} style={{ animationDelay: '0ms' }}>
-                    <div className="icon-holder"><Icons.Junk /></div>
-                    <div style={{ fontWeight: '600' }}>{t('junk_card')}</div>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '22px' }}>
-                      {loading ? <span className="skeleton" style={{ width: '80px', height: '16px' }} /> : formatBytes(totalSystemJunk)}
+                  <div className="flat-card stagger-item" style={{ animationDelay: '0ms' }}>
+                    <div className={`scan-detail-card ${totalSystemJunk > 0 ? 'warning' : 'ready'}`} style={{ border: 'none', background: 'transparent', height: '100%', padding: '24px 16px' }}>
+                      <div className="icon-holder"><Icons.Junk /></div>
+                      <div style={{ fontWeight: '600' }}>{t('junk_card')}</div>
+                      <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '22px' }}>
+                        {loading ? <span className="skeleton" style={{ width: '80px', height: '16px' }} /> : formatBytes(totalSystemJunk)}
+                      </div>
                     </div>
                   </div>
 
-                  <div className={`glass-panel scan-detail-card ${largeFiles.length > 0 ? 'warning' : 'ready'} stagger-item`} style={{ animationDelay: '30ms' }}>
-                    <div className="icon-holder"><Icons.LargeFiles /></div>
-                    <div style={{ fontWeight: '600' }}>{t('large_files_card')}</div>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '22px' }}>
-                      {loading ? <span className="skeleton" style={{ width: '80px', height: '16px' }} /> : `${largeFiles.length} ${t('files_unit')}`}
+                  <div className="flat-card stagger-item" style={{ animationDelay: '30ms' }}>
+                    <div className={`scan-detail-card ${largeFiles.length > 0 ? 'warning' : 'ready'}`} style={{ border: 'none', background: 'transparent', height: '100%', padding: '24px 16px' }}>
+                      <div className="icon-holder"><Icons.LargeFiles /></div>
+                      <div style={{ fontWeight: '600' }}>{t('large_files_card')}</div>
+                      <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '22px' }}>
+                        {loading ? <span className="skeleton" style={{ width: '80px', height: '16px' }} /> : `${largeFiles.length} ${t('files_unit')}`}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="glass-panel scan-detail-card ready stagger-item" style={{ animationDelay: '60ms' }}>
-                    <div className="icon-holder"><Icons.Memory /></div>
-                    <div style={{ fontWeight: '600' }}>{t('memory_ram')}</div>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '22px' }}>
-                      {loading ? <span className="skeleton" style={{ width: '80px', height: '16px' }} /> : `${formatBytes(systemStats.ramFree || 0)} ${t('free_word')}`}
+                  <div className="flat-card stagger-item" style={{ animationDelay: '60ms' }}>
+                    <div className="scan-detail-card ready" style={{ border: 'none', background: 'transparent', height: '100%', padding: '24px 16px' }}>
+                      <div className="icon-holder"><Icons.Memory /></div>
+                      <div style={{ fontWeight: '600' }}>{t('memory_ram')}</div>
+                      <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '22px' }}>
+                        {loading ? <span className="skeleton" style={{ width: '80px', height: '16px' }} /> : `${formatBytes(systemStats.ramFree || 0)} ${t('free_word')}`}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="glass-panel scan-detail-card ready stagger-item" style={{ animationDelay: '90ms' }}>
-                    <div className="icon-holder"><Icons.AppSlimmer /></div>
-                    <div style={{ fontWeight: '600' }}>{t('app_slimmed')}</div>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '22px' }}>
-                      {loading ? <span className="skeleton" style={{ width: '80px', height: '16px' }} /> : `${apps.filter(a => a.isStub).length} ${t('freed_unit')}`}
+                  <div className="flat-card stagger-item" style={{ animationDelay: '90ms' }}>
+                    <div className="scan-detail-card ready" style={{ border: 'none', background: 'transparent', height: '100%', padding: '24px 16px' }}>
+                      <div className="icon-holder"><Icons.AppSlimmer /></div>
+                      <div style={{ fontWeight: '600' }}>{t('app_slimmed')}</div>
+                      <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '22px' }}>
+                        {loading ? <span className="skeleton" style={{ width: '80px', height: '16px' }} /> : `${apps.filter(a => a.isStub).length} ${t('freed_unit')}`}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -806,20 +913,21 @@ export default function App() {
 
               {/* Big run action button */}
               {scanState === 'scanned' && (
-                <button 
-                  className="btn-primary" 
+                <GlassButton 
+                  size="lg" 
+                  tint="cool"
                   style={{ padding: '16px 40px', fontSize: '16px', borderRadius: '12px' }}
                   onClick={cleanEverythingSmart}
                   disabled={actionInProgress}
                 >
                   {t('smart_clean_btn')} ({formatBytes(totalSystemJunk)})
-                </button>
+                </GlassButton>
               )}
 
               {scanState === 'cleaned' && (
                 <div style={{ textAlign: 'center' }}>
                   <h3 style={{ color: 'var(--color-success)', marginBottom: '10px' }}>{t('clean_success')}</h3>
-                  <button className="btn-secondary" onClick={() => setScanState('idle')}>{t('back')}</button>
+                  <GlassButton size="md" tint="cool" onClick={() => setScanState('idle')}>{t('back')}</GlassButton>
                 </div>
               )}
             </div>
@@ -839,103 +947,108 @@ export default function App() {
             </header>
 
             {loading ? (
-              <div className="junk-list">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="glass-panel junk-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px' }}>
-                    <div style={{ display: 'flex', gap: '15px', flex: 1, alignItems: 'center' }}>
-                      <div className="skeleton" style={{ width: '20px', height: '20px', borderRadius: '4px' }} />
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-                        <div className="skeleton" style={{ width: '150px', height: '18px' }} />
-                        <div className="skeleton" style={{ width: '250px', height: '14px' }} />
+              <div className="flat-card" style={{ marginBottom: '24px' }}>
+                <div className="junk-list" style={{ display: 'flex', flexDirection: 'column', margin: 0 }}>
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="junk-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', border: 'none', background: 'transparent', borderBottom: i < 3 ? '1px solid var(--border-color)' : 'none' }}>
+                      <div style={{ display: 'flex', gap: '15px', flex: 1, alignItems: 'center' }}>
+                        <div className="skeleton" style={{ width: '20px', height: '20px', borderRadius: '4px' }} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+                          <div className="skeleton" style={{ width: '150px', height: '18px' }} />
+                          <div className="skeleton" style={{ width: '250px', height: '14px' }} />
+                        </div>
                       </div>
+                      <div className="skeleton" style={{ width: '80px', height: '20px' }} />
                     </div>
-                    <div className="skeleton" style={{ width: '80px', height: '20px' }} />
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             ) : (
-              <div className="junk-list">
-                <div className="glass-panel junk-item stagger-item" style={{ animationDelay: '0ms' }}>
-                  <div className="junk-info">
-                    <label className="checkbox-container">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedJunk.caches} 
-                        onChange={(e) => setSelectedJunk({...selectedJunk, caches: e.target.checked})}
-                      />
-                      <span className="checkmark" />
-                    </label>
-                    <div>
-                      <div className="junk-title">{t('user_caches')}</div>
-                      <div className="junk-path">~/Library/Caches</div>
+              <div className="flat-card" style={{ marginBottom: '24px' }}>
+                <div className="junk-list" style={{ display: 'flex', flexDirection: 'column', margin: 0 }}>
+                  <div className="junk-item stagger-item" style={{ animationDelay: '0ms', border: 'none', background: 'transparent', borderBottom: '1px solid var(--border-color)', padding: '20px 24px' }}>
+                    <div className="junk-info">
+                      <label className="checkbox-container">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedJunk.caches} 
+                          onChange={(e) => setSelectedJunk({...selectedJunk, caches: e.target.checked})}
+                        />
+                        <span className="checkmark" />
+                      </label>
+                      <div>
+                        <div className="junk-title">{t('user_caches')}</div>
+                        <div className="junk-path">~/Library/Caches</div>
+                      </div>
                     </div>
+                    <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatBytes(junkStats.userCaches)}</div>
                   </div>
-                  <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatBytes(junkStats.userCaches)}</div>
-                </div>
 
-                <div className="glass-panel junk-item stagger-item" style={{ animationDelay: '30ms' }}>
-                  <div className="junk-info">
-                    <label className="checkbox-container">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedJunk.logs} 
-                        onChange={(e) => setSelectedJunk({...selectedJunk, logs: e.target.checked})}
-                      />
-                      <span className="checkmark" />
-                    </label>
-                    <div>
-                      <div className="junk-title">{t('user_logs')}</div>
-                      <div className="junk-path">~/Library/Logs</div>
+                  <div className="junk-item stagger-item" style={{ animationDelay: '30ms', border: 'none', background: 'transparent', borderBottom: '1px solid var(--border-color)', padding: '20px 24px' }}>
+                    <div className="junk-info">
+                      <label className="checkbox-container">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedJunk.logs} 
+                          onChange={(e) => setSelectedJunk({...selectedJunk, logs: e.target.checked})}
+                        />
+                        <span className="checkmark" />
+                      </label>
+                      <div>
+                        <div className="junk-title">{t('user_logs')}</div>
+                        <div className="junk-path">~/Library/Logs</div>
+                      </div>
                     </div>
+                    <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatBytes(junkStats.userLogs)}</div>
                   </div>
-                  <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatBytes(junkStats.userLogs)}</div>
-                </div>
 
-                <div className="glass-panel junk-item stagger-item" style={{ animationDelay: '60ms' }}>
-                  <div className="junk-info">
-                    <label className="checkbox-container">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedJunk.xcode} 
-                        onChange={(e) => setSelectedJunk({...selectedJunk, xcode: e.target.checked})}
-                      />
-                      <span className="checkmark" />
-                    </label>
-                    <div>
-                      <div className="junk-title">{t('xcode_derived')}</div>
-                      <div className="junk-path">~/Library/Developer/Xcode/DerivedData</div>
+                  <div className="junk-item stagger-item" style={{ animationDelay: '60ms', border: 'none', background: 'transparent', borderBottom: '1px solid var(--border-color)', padding: '20px 24px' }}>
+                    <div className="junk-info">
+                      <label className="checkbox-container">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedJunk.xcode} 
+                          onChange={(e) => setSelectedJunk({...selectedJunk, xcode: e.target.checked})}
+                        />
+                        <span className="checkmark" />
+                      </label>
+                      <div>
+                        <div className="junk-title">{t('xcode_derived')}</div>
+                        <div className="junk-path">~/Library/Developer/Xcode/DerivedData</div>
+                      </div>
                     </div>
+                    <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatBytes(junkStats.xcodeDerivedData)}</div>
                   </div>
-                  <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatBytes(junkStats.xcodeDerivedData)}</div>
-                </div>
 
-                <div className="glass-panel junk-item stagger-item" style={{ animationDelay: '90ms' }}>
-                  <div className="junk-info">
-                    <label className="checkbox-container">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedJunk.trash} 
-                        onChange={(e) => setSelectedJunk({...selectedJunk, trash: e.target.checked})}
-                      />
-                      <span className="checkmark" />
-                    </label>
-                    <div>
-                      <div className="junk-title">{t('sys_trash')}</div>
-                      <div className="junk-path">~/.Trash</div>
+                  <div className="junk-item stagger-item" style={{ animationDelay: '90ms', border: 'none', background: 'transparent', padding: '20px 24px' }}>
+                    <div className="junk-info">
+                      <label className="checkbox-container">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedJunk.trash} 
+                          onChange={(e) => setSelectedJunk({...selectedJunk, trash: e.target.checked})}
+                        />
+                        <span className="checkmark" />
+                      </label>
+                      <div>
+                        <div className="junk-title">{t('sys_trash')}</div>
+                        <div className="junk-path">~/.Trash</div>
+                      </div>
                     </div>
+                    <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatBytes(junkStats.trash)}</div>
                   </div>
-                  <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatBytes(junkStats.trash)}</div>
                 </div>
               </div>
             )}
 
-            <button 
-              className="btn-primary" 
+            <GlassButton 
+              size="md" 
+              tint="cool"
               onClick={() => cleanJunk(false)}
               disabled={actionInProgress || (!selectedJunk.caches && !selectedJunk.logs && !selectedJunk.xcode && !selectedJunk.trash)}
             >
               {t('clean_junk')}
-            </button>
+            </GlassButton>
           </div>
         )}
 
@@ -968,103 +1081,108 @@ export default function App() {
                 ))}
 
                 {selectedLargeFiles.size > 0 && (
-                  <button 
-                    className="btn-primary" 
-                    style={{ marginTop: '20px', background: 'var(--color-danger)', fontSize: '12px' }}
-                    onClick={deleteSelectedLargeFiles}
-                    disabled={actionInProgress}
-                  >
-                    Xóa đã chọn ({selectedLargeFiles.size})
-                  </button>
-                )}
+                   <GlassButton 
+                     size="sm" 
+                     tint="cool"
+                     style={{ marginTop: '20px', width: '100%', color: 'var(--color-danger)' }}
+                     onClick={deleteSelectedLargeFiles}
+                     disabled={actionInProgress}
+                   >
+                     Xóa đã chọn ({selectedLargeFiles.size})
+                   </GlassButton>
+                 )}
               </div>
 
               {/* Right list table */}
-              <div className="large-files-content glass-panel">
-                {loading ? (
-                  <div style={{ padding: '20px' }}>
-                    <div className="skeleton-table">
-                      {[...Array(5)].map((_, i) => (
-                        <div key={i} className="skeleton-row" style={{ display: 'flex', gap: '15px', padding: '15px 0', borderBottom: '1px solid var(--border-color)' }}>
-                          <div className="skeleton" style={{ width: '20px', height: '20px', borderRadius: '4px' }} />
-                          <div className="skeleton" style={{ flex: 3, height: '18px' }} />
-                          <div className="skeleton" style={{ flex: 1, height: '18px' }} />
-                          <div className="skeleton" style={{ flex: 1, height: '18px' }} />
-                          <div className="skeleton" style={{ flex: 4, height: '18px' }} />
-                          <div className="skeleton" style={{ width: '40px', height: '18px', borderRadius: '4px' }} />
-                        </div>
-                      ))}
+              <div className="large-files-content">
+                <div className="flat-card">
+                  {loading ? (
+                    <div style={{ padding: '20px' }}>
+                      <div className="skeleton-table">
+                        {[...Array(5)].map((_, i) => (
+                          <div key={i} className="skeleton-row" style={{ display: 'flex', gap: '15px', padding: '15px 0', borderBottom: '1px solid var(--border-color)' }}>
+                            <div className="skeleton" style={{ width: '20px', height: '20px', borderRadius: '4px' }} />
+                            <div className="skeleton" style={{ flex: 3, height: '18px' }} />
+                            <div className="skeleton" style={{ flex: 1, height: '18px' }} />
+                            <div className="skeleton" style={{ flex: 1, height: '18px' }} />
+                            <div className="skeleton" style={{ flex: 4, height: '18px' }} />
+                            <div className="skeleton" style={{ width: '40px', height: '18px', borderRadius: '4px' }} />
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ) : filteredLargeFiles.length === 0 ? (
-                  <div className="empty-state">
-                    Không tìm thấy tệp tin nào lớn hơn 50 MB ở chuyên mục này.
-                  </div>
-                ) : (
-                  <table className="apps-table">
-                    <thead>
-                      <tr>
-                        <th className="checkbox-cell">
-                          <label className="checkbox-container">
-                            <input 
-                              type="checkbox" 
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedLargeFiles(new Set(filteredLargeFiles.map(f => f.path)));
-                                } else {
-                                  setSelectedLargeFiles(new Set());
-                                }
-                              }}
-                              checked={filteredLargeFiles.length > 0 && filteredLargeFiles.every(f => selectedLargeFiles.has(f.path))}
-                            />
-                            <span className="checkmark" />
-                          </label>
-                        </th>
-                        <th>Tên Tệp</th>
-                        <th>Kích Thước</th>
-                        <th>Lần Cuối Sửa</th>
-                        <th>Đường Dẫn</th>
-                        <th style={{ textAlign: 'right' }}>{t('col_action')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredLargeFiles.map((file, index) => (
-                        <tr key={file.path} className="stagger-item" style={{ animationDelay: `${Math.min(index, 20) * 30}ms` }}>
-                          <td className="checkbox-cell">
+                  ) : filteredLargeFiles.length === 0 ? (
+                    <div className="empty-state">
+                      Không tìm thấy tệp tin nào lớn hơn 50 MB ở chuyên mục này.
+                    </div>
+                  ) : (
+                    <table className="apps-table">
+                      <thead>
+                        <tr>
+                          <th className="checkbox-cell">
                             <label className="checkbox-container">
                               <input 
                                 type="checkbox" 
-                                checked={selectedLargeFiles.has(file.path)}
-                                onChange={() => {
-                                  const next = new Set(selectedLargeFiles);
-                                  if (next.has(file.path)) next.delete(file.path);
-                                  else next.add(file.path);
-                                  setSelectedLargeFiles(next);
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedLargeFiles(new Set(filteredLargeFiles.map(f => f.path)));
+                                  } else {
+                                    setSelectedLargeFiles(new Set());
+                                  }
                                 }}
+                                checked={filteredLargeFiles.length > 0 && filteredLargeFiles.every(f => selectedLargeFiles.has(f.path))}
                               />
                               <span className="checkmark" />
                             </label>
-                          </td>
-                          <td style={{ fontWeight: '500' }}>{file.name}</td>
-                          <td>{formatBytes(file.size)}</td>
-                          <td>{formatTimeAgo(file.modified)}</td>
-                          <td style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={file.path}>
-                            {file.path}
-                          </td>
-                          <td style={{ textAlign: 'right' }}>
-                            <button 
-                              className="btn-action-icon danger" 
-                              onClick={() => openConfirmationModal('delete_file', file)}
-                              disabled={actionInProgress}
-                            >
-                              <Icons.Uninstall />
-                            </button>
-                          </td>
+                          </th>
+                          <th>Tên Tệp</th>
+                          <th>Kích Thước</th>
+                          <th>Lần Cuối Sửa</th>
+                          <th>Đường Dẫn</th>
+                          <th style={{ textAlign: 'right' }}>{t('col_action')}</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
+                      </thead>
+                      <tbody>
+                        {filteredLargeFiles.map((file, index) => (
+                          <tr key={file.path} className="stagger-item" style={{ animationDelay: `${Math.min(index, 20) * 30}ms` }}>
+                            <td className="checkbox-cell">
+                              <label className="checkbox-container">
+                                <input 
+                                  type="checkbox" 
+                                  checked={selectedLargeFiles.has(file.path)}
+                                  onChange={() => {
+                                    const next = new Set(selectedLargeFiles);
+                                    if (next.has(file.path)) next.delete(file.path);
+                                    else next.add(file.path);
+                                    setSelectedLargeFiles(next);
+                                  }}
+                                />
+                                <span className="checkmark" />
+                              </label>
+                            </td>
+                            <td style={{ fontWeight: '500' }}>{file.name}</td>
+                            <td>{formatBytes(file.size)}</td>
+                            <td>{formatTimeAgo(file.modified)}</td>
+                            <td style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'monospace', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={file.path}>
+                              {file.path}
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <GlassButton 
+                                size="sm" 
+                                tint="cool"
+                                onClick={() => openConfirmationModal('delete_file', file)}
+                                disabled={actionInProgress}
+                                style={{ padding: '6px 12px', color: 'var(--color-danger)', borderRadius: '8px', fontSize: '12px' }}
+                              >
+                                {lang === 'vi' ? 'Xóa' : 'Delete'}
+                              </GlassButton>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1080,19 +1198,19 @@ export default function App() {
                 <h1><TextWarp text={t('opt_title')} trigger={activeTab} /></h1>
                 <p>Theo dõi và chấm dứt các ứng dụng/tiến trình đang chạy ngầm gây tốn CPU & RAM làm chậm máy Mac của bạn.</p>
               </div>
-              <button className="btn-secondary" onClick={() => loadTabData('optimization')} disabled={loading}>
-                <Icons.Refresh className={loading ? 'spinner' : ''} /> Cập Nhật
-              </button>
+              <GlassButton size="sm" tint="cool" onClick={() => loadTabData('optimization')} disabled={loading}>
+                Cập Nhật
+              </GlassButton>
             </header>
 
             <div className="process-list-header">
               <div className="filters">
-                <button className={`btn-filter ${processSort === 'mem' ? 'active' : ''}`} onClick={() => setProcessSort('mem')}>Theo RAM (%)</button>
-                <button className={`btn-filter ${processSort === 'cpu' ? 'active' : ''}`} onClick={() => setProcessSort('cpu')}>Theo CPU (%)</button>
+                <GlassButton size="sm" tint={processSort === 'mem' ? 'warm' : 'cool'} onClick={() => setProcessSort('mem')}>Theo RAM (%)</GlassButton>
+                <GlassButton size="sm" tint={processSort === 'cpu' ? 'warm' : 'cool'} onClick={() => setProcessSort('cpu')}>Theo CPU (%)</GlassButton>
               </div>
             </div>
 
-            <div className="glass-panel">
+            <div className="flat-card" style={{ overflow: 'hidden', marginBottom: '30px' }}>
               {loading ? (
                 <div style={{ padding: '20px' }}>
                   <div className="skeleton-table">
@@ -1135,14 +1253,15 @@ export default function App() {
                           {proc.path}
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <button 
-                            className="btn-secondary" 
-                            style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--color-danger)', borderColor: 'rgba(230, 57, 70, 0.2)' }}
+                          <GlassButton 
+                            size="sm" 
+                            tint="cool"
+                            style={{ color: 'var(--color-danger)' }}
                             onClick={() => killProcess(proc)}
                             disabled={actionInProgress}
                           >
                             Đóng
-                          </button>
+                          </GlassButton>
                         </td>
                       </tr>
                     ))}
@@ -1152,7 +1271,6 @@ export default function App() {
             </div>
           </div>
         )}
-
         {/* ========================================== */}
         {/* TAB 5: MAINTENANCE (BẢO TRÌ)              */}
         {/* ========================================== */}
@@ -1165,44 +1283,50 @@ export default function App() {
               </div>
             </header>
 
-            <div className="maintenance-grid">
-              <BorderGlow mode="cursor" cursorRadius={180} colors={["#262626", "#525252", "#ffffff"]} className="maintenance-card-glow">
-                <div className="maintenance-card">
-                  <div className="maintenance-header">
-                    <div className="maintenance-icon-box"><Icons.Memory /></div>
-                    <div className="maintenance-content">
-                      <h3>Giải phóng bộ nhớ RAM</h3>
-                      <p>Giải phóng lượng RAM không hoạt động đang được giữ làm bộ đệm ổ đĩa. Giúp lấy lại dung lượng bộ nhớ khả dụng cho các ứng dụng khác ngay lập tức.</p>
+            <div className="maintenance-grid" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginTop: '24px' }}>
+              <div className="flat-card" style={{ flex: '1 1 300px' }}>
+                <div className="maintenance-card" style={{ border: 'none', background: 'transparent', padding: '24px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '20px' }}>
+                  <div className="maintenance-header" style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                    <div className="maintenance-icon-box" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--border-color)', borderRadius: '10px', color: 'var(--text-primary)' }}><Icons.Memory /></div>
+                    <div className="maintenance-content" style={{ flex: 1 }}>
+                      <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '6px' }}>Giải phóng bộ nhớ RAM</h3>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>Giải phóng lượng RAM không hoạt động đang được giữ làm bộ đệm ổ đĩa. Giúp lấy lại dung lượng bộ nhớ khả dụng cho các ứng dụng khác ngay lập tức.</p>
                     </div>
                   </div>
-                  <button 
-                    className="btn-primary" 
-                    onClick={() => runMaintenance('ram')}
-                    disabled={actionInProgress}
-                  >
-                    Giải phóng RAM
-                  </button>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                    <GlassButton 
+                      size="md" 
+                      tint="cool"
+                      onClick={() => runMaintenance('ram')}
+                      disabled={actionInProgress}
+                    >
+                      Giải phóng RAM
+                    </GlassButton>
+                  </div>
                 </div>
-              </BorderGlow>
+              </div>
 
-              <BorderGlow mode="cursor" cursorRadius={180} colors={["#262626", "#525252", "#ffffff"]} className="maintenance-card-glow">
-                <div className="maintenance-card">
-                  <div className="maintenance-header">
-                    <div className="maintenance-icon-box"><Icons.Refresh /></div>
-                    <div className="maintenance-content">
-                      <h3>Làm sạch Cache DNS</h3>
-                      <p>Làm mới DNS resolver. Khắc phục các vấn đề liên quan đến tải trang web chậm hoặc lỗi không thể truy cập các địa chỉ web mới thay đổi.</p>
+              <div className="flat-card" style={{ flex: '1 1 300px' }}>
+                <div className="maintenance-card" style={{ border: 'none', background: 'transparent', padding: '24px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '20px' }}>
+                  <div className="maintenance-header" style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                    <div className="maintenance-icon-box" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--border-color)', borderRadius: '10px', color: 'var(--text-primary)' }}><Icons.Refresh /></div>
+                    <div className="maintenance-content" style={{ flex: 1 }}>
+                      <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '6px' }}>Làm sạch Cache DNS</h3>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>Làm mới DNS resolver. Khắc phục các vấn đề liên quan đến tải trang web chậm hoặc lỗi không thể truy cập các địa chỉ web mới thay đổi.</p>
                     </div>
                   </div>
-                  <button 
-                    className="btn-primary" 
-                    onClick={() => runMaintenance('dns')}
-                    disabled={actionInProgress}
-                  >
-                    Xóa Cache DNS
-                  </button>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                    <GlassButton 
+                      size="md" 
+                      tint="cool"
+                      onClick={() => runMaintenance('dns')}
+                      disabled={actionInProgress}
+                    >
+                      Xóa Cache DNS
+                    </GlassButton>
+                  </div>
                 </div>
-              </BorderGlow>
+              </div>
             </div>
           </div>
         )}
@@ -1217,9 +1341,9 @@ export default function App() {
                 <h1><TextWarp text={t('slim_title')} trigger={activeTab} /></h1>
                 <p>{t('slim_desc')}</p>
               </div>
-              <button className="btn-secondary" onClick={() => loadTabData('app_slimmer')} disabled={loading}>
-                <Icons.Refresh className={loading ? 'spinner' : ''} /> Quét Lại
-              </button>
+              <GlassButton size="sm" tint="cool" onClick={() => loadTabData('app_slimmer')} disabled={loading}>
+                Quét Lại
+              </GlassButton>
             </header>
 
             {/* Controls */}
@@ -1234,31 +1358,31 @@ export default function App() {
                 />
               </div>
               
-              <div className="filters">
-                <button className={`btn-filter ${appFilter === 'all' ? 'active' : ''}`} onClick={() => setAppFilter('all')}>{t('cat_all')}</button>
-                <button className={`btn-filter ${appFilter === 'slimmable' ? 'active' : ''}`} onClick={() => setAppFilter('slimmable')}>{t('filter_slimmable')}</button>
-                <button className={`btn-filter ${appFilter === 'offloaded' ? 'active' : ''}`} onClick={() => setAppFilter('offloaded')}>{t('filter_offloaded')}</button>
-                <button className={`btn-filter ${appFilter === 'running' ? 'active' : ''}`} onClick={() => setAppFilter('running')}>{t('filter_running')}</button>
-                <button className={`btn-filter ${appFilter === 'system' ? 'active' : ''}`} onClick={() => setAppFilter('system')}>{t('filter_system')}</button>
+              <div className="filters" style={{ flexWrap: 'wrap', gap: '8px' }}>
+                <GlassButton size="sm" tint={appFilter === 'all' ? 'warm' : 'cool'} onClick={() => setAppFilter('all')}>{t('cat_all')}</GlassButton>
+                <GlassButton size="sm" tint={appFilter === 'slimmable' ? 'warm' : 'cool'} onClick={() => setAppFilter('slimmable')}>{t('filter_slimmable')}</GlassButton>
+                <GlassButton size="sm" tint={appFilter === 'offloaded' ? 'warm' : 'cool'} onClick={() => setAppFilter('offloaded')}>{t('filter_offloaded')}</GlassButton>
+                <GlassButton size="sm" tint={appFilter === 'running' ? 'warm' : 'cool'} onClick={() => setAppFilter('running')}>{t('filter_running')}</GlassButton>
+                <GlassButton size="sm" tint={appFilter === 'system' ? 'warm' : 'cool'} onClick={() => setAppFilter('system')}>{t('filter_system')}</GlassButton>
                 
                 {selectedApps.size > 0 && (
                   <div style={{ display: 'flex', gap: '8px', marginLeft: '15px', borderLeft: '1px solid var(--glass-border)', paddingLeft: '15px' }}>
-                    <button className="btn-primary" onClick={() => handleBulkAppAction('compress')} style={{ padding: '8px 12px', fontSize: '13px' }}>
-                      <Icons.Compress /> Nén chọn ({selectedApps.size})
-                    </button>
-                    <button className="btn-primary" onClick={() => handleBulkAppAction('offload')} style={{ padding: '8px 12px', fontSize: '13px' }}>
-                      <Icons.Offload /> Giải phóng ({selectedApps.size})
-                    </button>
-                    <button className="btn-secondary" onClick={() => handleBulkAppAction('clean')} style={{ padding: '8px 12px', fontSize: '13px' }}>
-                      <Icons.Clean /> Dọn Dữ Liệu Ẩn ({selectedApps.size})
-                    </button>
+                    <GlassButton size="sm" tint="cool" onClick={() => handleBulkAppAction('compress')}>
+                      Nén chọn ({selectedApps.size})
+                    </GlassButton>
+                    <GlassButton size="sm" tint="cool" onClick={() => handleBulkAppAction('offload')}>
+                      Giải phóng ({selectedApps.size})
+                    </GlassButton>
+                    <GlassButton size="sm" tint="cool" onClick={() => handleBulkAppAction('clean')}>
+                      Dọn Dữ Liệu Ẩn ({selectedApps.size})
+                    </GlassButton>
                   </div>
                 )}
               </div>
             </section>
 
             {/* Apps table list */}
-            <section className="glass-panel table-panel">
+            <div className="flat-card" style={{ overflow: 'hidden', marginBottom: '30px' }}>
               {loading ? (
                 <div style={{ padding: '20px' }}>
                   <div className="skeleton-table">
@@ -1351,61 +1475,70 @@ export default function App() {
                           </div>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <div className="action-buttons" style={{ justifyContent: 'flex-end' }}>
+                          <div className="action-buttons" style={{ justifyContent: 'flex-end', gap: '6px' }}>
                             {!app.isSystem && !app.isStub && (
-                              <button 
-                                className="btn-action-icon" 
+                              <GlassButton 
+                                size="sm" 
+                                tint="cool"
                                 title={t('tip_compress')}
                                 onClick={() => openConfirmationModal('compress', app)}
                                 disabled={app.isRunning || actionInProgress}
+                                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '12px' }}
                               >
-                                <Icons.Compress />
-                              </button>
+                                {lang === 'vi' ? 'Nén' : 'Compress'}
+                              </GlassButton>
                             )}
 
                             {!app.isSystem && !app.isStub && (
-                              <button 
-                                className="btn-action-icon" 
+                              <GlassButton 
+                                size="sm" 
+                                tint="cool"
                                 title={t('tip_offload')}
                                 onClick={() => openConfirmationModal('offload', app)}
                                 disabled={app.isRunning || actionInProgress}
+                                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '12px' }}
                               >
-                                <Icons.Offload />
-                              </button>
+                                {lang === 'vi' ? 'Giải phóng' : 'Offload'}
+                              </GlassButton>
                             )}
 
                             {app.isStub && (
-                              <button 
-                                className="btn-action-icon" 
+                              <GlassButton 
+                                size="sm" 
+                                tint="cool"
                                 title={t('tip_restore')}
                                 onClick={() => handleAppAction('restore', app)}
                                 disabled={actionInProgress}
-                                style={{ color: 'var(--accent-cyan)', borderColor: 'rgba(0, 245, 212, 0.2)' }}
+                                style={{ padding: '6px 12px', color: 'var(--accent-cyan)', borderRadius: '8px', fontSize: '12px' }}
                               >
-                                <Icons.Restore />
-                              </button>
+                                {lang === 'vi' ? 'Khôi phục' : 'Restore'}
+                              </GlassButton>
                             )}
 
                             {app.cacheSize > 0 && (
-                              <button 
-                                className="btn-action-icon" 
+                              <GlassButton 
+                                size="sm" 
+                                tint="cool"
                                 title={t('tip_clean')}
                                 onClick={() => handleAppAction('clean', app)}
                                 disabled={actionInProgress}
+                                style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '12px' }}
                               >
-                                <Icons.Clean />
-                              </button>
+                                {lang === 'vi' ? 'Dọn Cache' : 'Clean Cache'}
+                              </GlassButton>
                             )}
 
                             {!app.isSystem && (
-                              <button 
-                                className="btn-action-icon danger" 
+                              <GlassButton 
+                                size="sm" 
+                                tint="cool"
                                 title={t('tip_uninstall')}
                                 onClick={() => openConfirmationModal('uninstall', app)}
                                 disabled={app.isRunning || actionInProgress}
+                                style={{ padding: '6px 12px', color: 'var(--color-danger)', borderRadius: '8px', fontSize: '12px' }}
                               >
-                                <Icons.Uninstall />
-                              </button>
+                                {lang === 'vi' ? 'Gỡ' : 'Uninstall'}
+                              </GlassButton>
                             )}
                           </div>
                         </td>
@@ -1414,29 +1547,32 @@ export default function App() {
                   </tbody>
                 </table>
               )}
-            </section>
+            </div>
           </div>
         )}
 
         {/* Live Event Console Logger (Standard for all tabs) */}
-        <section className="glass-panel console-panel">
-          <div className="console-header">
-            <span className="console-title"><Icons.Terminal /> {t('activity_log')}</span>
-            <button className="btn-secondary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => setLogs([])}>{t('clear_log')}</button>
-          </div>
-          <div className="console-logs">
-            {logs.length === 0 ? (
-              <div style={{ color: 'var(--text-muted)' }}>Chưa có hoạt động nào được ghi lại.</div>
-            ) : (
-              logs.map((log, index) => (
-                <div key={index} className={`console-line ${log.type}`}>
-                  [{log.time}] <span style={{ color: 'var(--text-muted)' }}>&gt;</span> {log.text}
-                </div>
-              ))
-            )}
-          </div>
-        </section>
+        <div className="flat-card" style={{ width: '100%', marginTop: '30px' }}>
+          <section className="console-panel" style={{ border: 'none', background: 'transparent' }}>
+            <div className="console-header">
+              <span className="console-title"><Icons.Terminal /> {t('activity_log')}</span>
+              <GlassButton size="sm" tint="cool" onClick={() => setLogs([])}>{t('clear_log')}</GlassButton>
+            </div>
+            <div className="console-logs">
+              {logs.length === 0 ? (
+                <div style={{ color: 'var(--text-muted)' }}>Chưa có hoạt động nào được ghi lại.</div>
+              ) : (
+                logs.map((log, index) => (
+                  <div key={index} className={`console-line ${log.type}`}>
+                    [{log.time}] <span style={{ color: 'var(--text-muted)' }}>&gt;</span> {log.text}
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
       </main>
+    </div>
 
       {/* Action Dialog Confirmation Modals */}
       {modal.isOpen && (
@@ -1490,16 +1626,15 @@ export default function App() {
             </div>
 
             <div className="modal-footer">
-              <button 
-                className="btn-secondary" 
+              <GlassButton 
                 onClick={() => setModal({ isOpen: false, type: '', data: null })}
                 disabled={actionInProgress}
               >
                 Hủy bỏ
-              </button>
-              <button 
-                className={`btn-primary ${modal.type === 'uninstall' || modal.type === 'delete_file' ? 'danger' : ''}`}
-                style={modal.type === 'uninstall' || modal.type === 'delete_file' ? { background: 'var(--color-danger)', boxShadow: '0 4px 15px rgba(230, 57, 70, 0.2)' } : {}}
+              </GlassButton>
+              <GlassButton 
+                tint="cool"
+                style={modal.type === 'uninstall' || modal.type === 'delete_file' ? { color: 'var(--color-danger)' } : {}}
                 onClick={() => {
                   if (modal.type === 'delete_file') {
                     deleteLargeFile(modal.data);
@@ -1510,11 +1645,70 @@ export default function App() {
                 disabled={actionInProgress}
               >
                 Đồng ý
-              </button>
+              </GlassButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDonateModal && (
+        <div className="modal-overlay" onClick={() => setShowDonateModal(false)}>
+          <div className="glass-panel modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '360px', padding: '24px' }}>
+            <h3 className="modal-header" style={{ textAlign: 'center', marginBottom: '15px' }}>
+              {lang === 'vi' ? 'Nuôi em ☕' : 'Support Me ☕'}
+            </h3>
+            <div className="modal-body" style={{ margin: 0, textAlign: 'center' }}>
+              <img 
+                src="/IMG_0439.jpg" 
+                alt="Donate QR Code" 
+                style={{ 
+                  width: '240px', 
+                  height: '240px', 
+                  borderRadius: '16px', 
+                  display: 'block', 
+                  margin: '0 auto 16px', 
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+                  border: '1px solid var(--border-color)'
+                }} 
+              />
+              <div style={{ 
+                background: 'var(--panel-bg)', 
+                border: '1px solid var(--border-color)', 
+                padding: '12px 16px', 
+                borderRadius: '12px', 
+                fontSize: '13px', 
+                textAlign: 'left',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px'
+              }}>
+                <div><strong>{lang === 'vi' ? 'Chủ tài khoản' : 'Account Owner'}:</strong> DO HOANG VIET</div>
+                <div><strong>{lang === 'vi' ? 'Ngân hàng' : 'Bank'}:</strong> Techcombank</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+                  <span><strong>STK:</strong> 19072207783015</span>
+                  <GlassButton
+                    size="sm"
+                    tint="cool"
+                    style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px' }}
+                    onClick={handleCopyStk}
+                  >
+                    {copiedStk ? (lang === 'vi' ? 'Đã copy' : 'Copied') : (lang === 'vi' ? 'Sao chép' : 'Copy')}
+                  </GlassButton>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer" style={{ marginTop: '20px', justifyContent: 'center' }}>
+              <GlassButton 
+                onClick={() => setShowDonateModal(false)}
+                style={{ width: '100%', padding: '10px 0' }}
+              >
+                {lang === 'vi' ? 'Đóng' : 'Close'}
+              </GlassButton>
             </div>
           </div>
         </div>
       )}
     </div>
+  </>
   );
 }
