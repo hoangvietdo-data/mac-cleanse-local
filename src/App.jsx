@@ -163,8 +163,16 @@ const Icons = {
 export default function App() {
   const [activeTab, setActiveTab] = useState('smart_scan');
   const [lang, setLang] = useState(() => localStorage.getItem('lang') || 'vi');
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
+  
   const t = (key) => (TRANSLATIONS[lang] || TRANSLATIONS.vi)[key] || key;
   const toggleLang = () => { const nl = lang === 'vi' ? 'en' : 'vi'; localStorage.setItem('lang', nl); setLang(nl); };
+  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
   
   // State
   const [loading, setLoading] = useState(false);
@@ -295,41 +303,43 @@ export default function App() {
     }
   }, [activeTab]);
 
+  // Helper: Perform API call for cleaning junk (bypasses UI actionInProgress check)
+  const performJunkClean = async (options) => {
+    const res = await fetch(`${API_BASE}/clean-junk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Lỗi không xác định');
+    return data;
+  };
+
   // Clean System Junk
-  const cleanJunk = async (isSmartClean = false) => {
+  const cleanJunk = async () => {
     if (actionInProgress) return;
     setActionInProgress(true);
-    if (!isSmartClean) setLoading(true);
+    setLoading(true);
     
     addLog('Bắt đầu dọn dẹp rác hệ thống...', 'info');
     try {
-      const res = await fetch(`${API_BASE}/clean-junk`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cleanCaches: isSmartClean ? true : selectedJunk.caches,
-          cleanLogs: isSmartClean ? true : selectedJunk.logs,
-          cleanXcode: isSmartClean ? true : selectedJunk.xcode,
-          cleanTrash: isSmartClean ? true : selectedJunk.trash
-        })
+      const data = await performJunkClean({
+        cleanCaches: selectedJunk.caches,
+        cleanLogs: selectedJunk.logs,
+        cleanXcode: selectedJunk.xcode,
+        cleanTrash: selectedJunk.trash
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
 
       data.logs.forEach(l => addLog(l, 'success'));
-      addLog('Đã dọn sạch rác hệ thống thành công!', 'success');
+      const sizeMsg = data.freedSize > 0 ? ` (Giải phóng ${formatBytes(data.freedSize)})` : '';
+      addLog(`Đã dọn sạch rác hệ thống thành công!${sizeMsg}`, 'success');
 
-      // Reload
-      if (isSmartClean) {
-        setJunkStats({ userCaches: 0, userLogs: 0, xcodeDerivedData: 0, trash: 0 });
-      } else {
-        await loadTabData('system_junk');
-      }
+      await loadTabData('system_junk');
     } catch (e) {
       addLog(`Lỗi dọn dẹp: ${e.message}`, 'error');
     } finally {
       setActionInProgress(false);
-      if (!isSmartClean) setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -341,14 +351,20 @@ export default function App() {
     addLog('Đang tiến hành dọn dẹp thông minh toàn bộ hệ thống...', 'info');
 
     try {
-      // 1. Clean Junk
-      await cleanJunk(true);
+      const data = await performJunkClean({
+        cleanCaches: true,
+        cleanLogs: true,
+        cleanXcode: true,
+        cleanTrash: true
+      });
 
-      // 2. Refresh stats
+      data.logs.forEach(l => addLog(l, 'success'));
       await fetchSystemStats();
-      
+      setJunkStats({ userCaches: 0, userLogs: 0, xcodeDerivedData: 0, trash: 0 });
       setScanState('cleaned');
-      addLog('Hoạt động dọn dẹp thông minh đã hoàn tất xuất sắc!', 'success');
+      
+      const sizeMsg = data.freedSize > 0 ? ` (Giải phóng ${formatBytes(data.freedSize)})` : '';
+      addLog(`Hoạt động dọn dẹp thông minh đã hoàn tất xuất sắc!${sizeMsg}`, 'success');
     } catch (e) {
       setScanState('scanned');
       addLog(`Dọn dẹp thông minh gặp lỗi: ${e.message}`, 'error');
@@ -468,7 +484,11 @@ export default function App() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      addLog(successMsg, 'success');
+      let sizeMsg = '';
+      if (type === 'ram' && data.freedSize !== undefined) {
+        sizeMsg = ` (Giải phóng ${formatBytes(data.freedSize)})`;
+      }
+      addLog(`${successMsg}${sizeMsg}`, 'success');
       await fetchSystemStats();
     } catch (e) {
       addLog(`${errorMsg} Chi tiết: ${e.message}`, 'error');
@@ -688,8 +708,10 @@ export default function App() {
 
       {/* Main Dashboard Panel */}
       <main className="main-content">
-        {/* Top bar: language toggle + feedback */}
         <div className="top-bar">
+          <button id="theme-toggle-btn" className="top-bar-btn" onClick={toggleTheme} title="Switch theme">
+            {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
+          </button>
           <button id="lang-toggle-btn" className="top-bar-btn" onClick={toggleLang} title="Switch language">
             {lang === 'vi' ? '🇬🇧 EN' : '🇻🇳 VI'}
           </button>
@@ -733,35 +755,35 @@ export default function App() {
               {/* Smart Scan cards review row */}
               {(scanState === 'scanned' || scanState === 'scanning' || scanState === 'cleaning' || scanState === 'cleaned') && (
                 <div className="scan-cards-row">
-                  <div className={`glass-panel scan-detail-card ${totalSystemJunk > 0 ? 'warning' : 'ready'}`}>
+                  <div className={`glass-panel scan-detail-card ${totalSystemJunk > 0 ? 'warning' : 'ready'} stagger-item`} style={{ animationDelay: '0ms' }}>
                     <div className="icon-holder"><Icons.Junk /></div>
                     <div style={{ fontWeight: '600' }}>{t('junk_card')}</div>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                      {loading ? '...' : formatBytes(totalSystemJunk)}
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '22px' }}>
+                      {loading ? <span className="skeleton" style={{ width: '80px', height: '16px' }} /> : formatBytes(totalSystemJunk)}
                     </div>
                   </div>
 
-                  <div className={`glass-panel scan-detail-card ${largeFiles.length > 0 ? 'warning' : 'ready'}`}>
+                  <div className={`glass-panel scan-detail-card ${largeFiles.length > 0 ? 'warning' : 'ready'} stagger-item`} style={{ animationDelay: '30ms' }}>
                     <div className="icon-holder"><Icons.LargeFiles /></div>
                     <div style={{ fontWeight: '600' }}>{t('large_files_card')}</div>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                      {loading ? '...' : `${largeFiles.length} ${t('files_unit')}`}
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '22px' }}>
+                      {loading ? <span className="skeleton" style={{ width: '80px', height: '16px' }} /> : `${largeFiles.length} ${t('files_unit')}`}
                     </div>
                   </div>
 
-                  <div className="glass-panel scan-detail-card ready">
+                  <div className="glass-panel scan-detail-card ready stagger-item" style={{ animationDelay: '60ms' }}>
                     <div className="icon-holder"><Icons.Memory /></div>
                     <div style={{ fontWeight: '600' }}>{t('memory_ram')}</div>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--accent-cyan)' }}>
-                      {formatBytes(systemStats.ramFree || 0)} {t('free_word')}
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '22px' }}>
+                      {loading ? <span className="skeleton" style={{ width: '80px', height: '16px' }} /> : `${formatBytes(systemStats.ramFree || 0)} ${t('free_word')}`}
                     </div>
                   </div>
 
-                  <div className="glass-panel scan-detail-card ready">
+                  <div className="glass-panel scan-detail-card ready stagger-item" style={{ animationDelay: '90ms' }}>
                     <div className="icon-holder"><Icons.AppSlimmer /></div>
                     <div style={{ fontWeight: '600' }}>{t('app_slimmed')}</div>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--accent-purple)' }}>
-                      {apps.filter(a => a.isStub).length} {t('freed_unit')}
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '22px' }}>
+                      {loading ? <span className="skeleton" style={{ width: '80px', height: '16px' }} /> : `${apps.filter(a => a.isStub).length} ${t('freed_unit')}`}
                     </div>
                   </div>
                 </div>
@@ -801,79 +823,96 @@ export default function App() {
               </div>
             </header>
 
-            <div className="junk-list">
-              <div className="glass-panel junk-item">
-                <div className="junk-info">
-                  <label className="checkbox-container">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedJunk.caches} 
-                      onChange={(e) => setSelectedJunk({...selectedJunk, caches: e.target.checked})}
-                    />
-                    <span className="checkmark" />
-                  </label>
-                  <div>
-                    <div className="junk-title">{t('user_caches')}</div>
-                    <div className="junk-path">~/Library/Caches</div>
+            {loading ? (
+              <div className="junk-list">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="glass-panel junk-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px' }}>
+                    <div style={{ display: 'flex', gap: '15px', flex: 1, alignItems: 'center' }}>
+                      <div className="skeleton" style={{ width: '20px', height: '20px', borderRadius: '4px' }} />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+                        <div className="skeleton" style={{ width: '150px', height: '18px' }} />
+                        <div className="skeleton" style={{ width: '250px', height: '14px' }} />
+                      </div>
+                    </div>
+                    <div className="skeleton" style={{ width: '80px', height: '20px' }} />
                   </div>
-                </div>
-                <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatBytes(junkStats.userCaches)}</div>
+                ))}
               </div>
+            ) : (
+              <div className="junk-list">
+                <div className="glass-panel junk-item stagger-item" style={{ animationDelay: '0ms' }}>
+                  <div className="junk-info">
+                    <label className="checkbox-container">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedJunk.caches} 
+                        onChange={(e) => setSelectedJunk({...selectedJunk, caches: e.target.checked})}
+                      />
+                      <span className="checkmark" />
+                    </label>
+                    <div>
+                      <div className="junk-title">{t('user_caches')}</div>
+                      <div className="junk-path">~/Library/Caches</div>
+                    </div>
+                  </div>
+                  <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatBytes(junkStats.userCaches)}</div>
+                </div>
 
-              <div className="glass-panel junk-item">
-                <div className="junk-info">
-                  <label className="checkbox-container">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedJunk.logs} 
-                      onChange={(e) => setSelectedJunk({...selectedJunk, logs: e.target.checked})}
-                    />
-                    <span className="checkmark" />
-                  </label>
-                  <div>
-                    <div className="junk-title">{t('user_logs')}</div>
-                    <div className="junk-path">~/Library/Logs</div>
+                <div className="glass-panel junk-item stagger-item" style={{ animationDelay: '30ms' }}>
+                  <div className="junk-info">
+                    <label className="checkbox-container">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedJunk.logs} 
+                        onChange={(e) => setSelectedJunk({...selectedJunk, logs: e.target.checked})}
+                      />
+                      <span className="checkmark" />
+                    </label>
+                    <div>
+                      <div className="junk-title">{t('user_logs')}</div>
+                      <div className="junk-path">~/Library/Logs</div>
+                    </div>
                   </div>
+                  <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatBytes(junkStats.userLogs)}</div>
                 </div>
-                <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatBytes(junkStats.userLogs)}</div>
-              </div>
 
-              <div className="glass-panel junk-item">
-                <div className="junk-info">
-                  <label className="checkbox-container">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedJunk.xcode} 
-                      onChange={(e) => setSelectedJunk({...selectedJunk, xcode: e.target.checked})}
-                    />
-                    <span className="checkmark" />
-                  </label>
-                  <div>
-                    <div className="junk-title">{t('xcode_derived')}</div>
-                    <div className="junk-path">~/Library/Developer/Xcode/DerivedData</div>
+                <div className="glass-panel junk-item stagger-item" style={{ animationDelay: '60ms' }}>
+                  <div className="junk-info">
+                    <label className="checkbox-container">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedJunk.xcode} 
+                        onChange={(e) => setSelectedJunk({...selectedJunk, xcode: e.target.checked})}
+                      />
+                      <span className="checkmark" />
+                    </label>
+                    <div>
+                      <div className="junk-title">{t('xcode_derived')}</div>
+                      <div className="junk-path">~/Library/Developer/Xcode/DerivedData</div>
+                    </div>
                   </div>
+                  <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatBytes(junkStats.xcodeDerivedData)}</div>
                 </div>
-                <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatBytes(junkStats.xcodeDerivedData)}</div>
-              </div>
 
-              <div className="glass-panel junk-item">
-                <div className="junk-info">
-                  <label className="checkbox-container">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedJunk.trash} 
-                      onChange={(e) => setSelectedJunk({...selectedJunk, trash: e.target.checked})}
-                    />
-                    <span className="checkmark" />
-                  </label>
-                  <div>
-                    <div className="junk-title">{t('sys_trash')}</div>
-                    <div className="junk-path">~/.Trash</div>
+                <div className="glass-panel junk-item stagger-item" style={{ animationDelay: '90ms' }}>
+                  <div className="junk-info">
+                    <label className="checkbox-container">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedJunk.trash} 
+                        onChange={(e) => setSelectedJunk({...selectedJunk, trash: e.target.checked})}
+                      />
+                      <span className="checkmark" />
+                    </label>
+                    <div>
+                      <div className="junk-title">{t('sys_trash')}</div>
+                      <div className="junk-path">~/.Trash</div>
+                    </div>
                   </div>
+                  <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatBytes(junkStats.trash)}</div>
                 </div>
-                <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatBytes(junkStats.trash)}</div>
               </div>
-            </div>
+            )}
 
             <button 
               className="btn-primary" 
@@ -928,9 +967,19 @@ export default function App() {
               {/* Right list table */}
               <div className="large-files-content glass-panel">
                 {loading ? (
-                  <div className="loading-container">
-                    <div className="spinner" />
-                    <p>Đang tìm kiếm tệp tin lớn...</p>
+                  <div style={{ padding: '20px' }}>
+                    <div className="skeleton-table">
+                      {[...Array(5)].map((_, i) => (
+                        <div key={i} className="skeleton-row" style={{ display: 'flex', gap: '15px', padding: '15px 0', borderBottom: '1px solid var(--border-color)' }}>
+                          <div className="skeleton" style={{ width: '20px', height: '20px', borderRadius: '4px' }} />
+                          <div className="skeleton" style={{ flex: 3, height: '18px' }} />
+                          <div className="skeleton" style={{ flex: 1, height: '18px' }} />
+                          <div className="skeleton" style={{ flex: 1, height: '18px' }} />
+                          <div className="skeleton" style={{ flex: 4, height: '18px' }} />
+                          <div className="skeleton" style={{ width: '40px', height: '18px', borderRadius: '4px' }} />
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : filteredLargeFiles.length === 0 ? (
                   <div className="empty-state">
@@ -964,8 +1013,8 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredLargeFiles.map((file) => (
-                        <tr key={file.path}>
+                      {filteredLargeFiles.map((file, index) => (
+                        <tr key={file.path} className="stagger-item" style={{ animationDelay: `${Math.min(index, 20) * 30}ms` }}>
                           <td className="checkbox-cell">
                             <label className="checkbox-container">
                               <input 
@@ -1030,9 +1079,19 @@ export default function App() {
 
             <div className="glass-panel">
               {loading ? (
-                <div className="loading-container">
-                  <div className="spinner" />
-                  <p>Đang nạp các tiến trình đang chạy...</p>
+                <div style={{ padding: '20px' }}>
+                  <div className="skeleton-table">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="skeleton-row" style={{ display: 'flex', gap: '15px', padding: '15px 0', borderBottom: '1px solid var(--border-color)' }}>
+                        <div className="skeleton" style={{ flex: 2, height: '18px' }} />
+                        <div className="skeleton" style={{ flex: 1, height: '18px' }} />
+                        <div className="skeleton" style={{ flex: 1, height: '18px' }} />
+                        <div className="skeleton" style={{ flex: 1, height: '18px' }} />
+                        <div className="skeleton" style={{ flex: 3, height: '18px' }} />
+                        <div className="skeleton" style={{ width: '40px', height: '18px', borderRadius: '4px' }} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <table className="apps-table">
@@ -1047,8 +1106,8 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedProcesses.map(proc => (
-                      <tr key={proc.pid}>
+                    {sortedProcesses.map((proc, index) => (
+                      <tr key={proc.pid} className="stagger-item" style={{ animationDelay: `${Math.min(index, 20) * 30}ms` }}>
                         <td style={{ fontWeight: '600' }}>{proc.name}</td>
                         <td style={{ fontFamily: 'monospace' }}>{proc.pid}</td>
                         <td style={{ color: proc.cpu > 50 ? 'var(--color-danger)' : 'inherit', fontWeight: proc.cpu > 50 ? 'bold' : 'normal' }}>
@@ -1168,7 +1227,7 @@ export default function App() {
                     <button className="btn-primary" onClick={() => handleBulkAppAction('compress')} style={{ padding: '8px 12px', fontSize: '13px' }}>
                       <Icons.Compress /> Nén chọn ({selectedApps.size})
                     </button>
-                    <button className="btn-primary" onClick={() => handleBulkAppAction('offload')} style={{ padding: '8px 12px', fontSize: '13px', background: 'linear-gradient(135deg, var(--accent-purple), var(--accent-cyan))' }}>
+                    <button className="btn-primary" onClick={() => handleBulkAppAction('offload')} style={{ padding: '8px 12px', fontSize: '13px' }}>
                       <Icons.Offload /> Giải phóng ({selectedApps.size})
                     </button>
                     <button className="btn-secondary" onClick={() => handleBulkAppAction('clean')} style={{ padding: '8px 12px', fontSize: '13px' }}>
@@ -1182,9 +1241,20 @@ export default function App() {
             {/* Apps table list */}
             <section className="glass-panel table-panel">
               {loading ? (
-                <div className="loading-container">
-                  <div className="spinner" />
-                  <p>Đang phân tích ứng dụng...</p>
+                <div style={{ padding: '20px' }}>
+                  <div className="skeleton-table">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="skeleton-row" style={{ display: 'flex', gap: '15px', padding: '15px 0', borderBottom: '1px solid var(--border-color)' }}>
+                        <div className="skeleton" style={{ width: '20px', height: '20px', borderRadius: '4px' }} />
+                        <div className="skeleton" style={{ flex: 3, height: '18px' }} />
+                        <div className="skeleton" style={{ flex: 1, height: '18px' }} />
+                        <div className="skeleton" style={{ flex: 1, height: '18px' }} />
+                        <div className="skeleton" style={{ flex: 2, height: '18px' }} />
+                        <div className="skeleton" style={{ flex: 1, height: '18px' }} />
+                        <div className="skeleton" style={{ width: '80px', height: '18px', borderRadius: '4px' }} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : filteredApps.length === 0 ? (
                 <div className="empty-state">Không tìm thấy ứng dụng phù hợp với bộ lọc.</div>
@@ -1217,8 +1287,8 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredApps.map(app => (
-                      <tr key={app.bundleId}>
+                    {filteredApps.map((app, index) => (
+                      <tr key={app.bundleId} className="stagger-item" style={{ animationDelay: `${Math.min(index, 20) * 30}ms` }}>
                         <td className="checkbox-cell">
                           {!app.isSystem && (
                             <label className="checkbox-container">

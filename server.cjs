@@ -122,6 +122,29 @@ function getAppIcon(appPath, bundleId) {
   return null;
 }
 
+// Helper: Get accurate RAM free & total memory
+function getRamStats() {
+  const total = os.totalmem();
+  let free = os.freemem();
+  try {
+    const vmstat = execSync('vm_stat', { stdio: ['pipe', 'pipe', 'ignore'] }).toString();
+    const pageSizeMatch = vmstat.match(/page size of (\d+) bytes/);
+    const pageSize = pageSizeMatch ? parseInt(pageSizeMatch[1], 10) : 4096;
+    
+    const getPages = (name) => {
+      const match = vmstat.match(new RegExp(`${name}:\\s+(\\d+)`));
+      return match ? parseInt(match[1], 10) : 0;
+    };
+    
+    const freePages = getPages('Pages free');
+    const speculativePages = getPages('Pages speculative');
+    const inactivePages = getPages('Pages inactive');
+    
+    free = (freePages + speculativePages + inactivePages) * pageSize;
+  } catch (err) {}
+  return { total, free };
+}
+
 // Helper: Measure directory size quickly (fallback shell command)
 function getFolderSize(dirPath) {
   if (!fs.existsSync(dirPath)) return 0;
@@ -644,29 +667,48 @@ app.post('/api/clean-junk', (req, res) => {
   const { cleanCaches, cleanLogs, cleanXcode, cleanTrash } = req.body;
   const logs = [];
 
+  const cachesPath = path.join(HOME, 'Library', 'Caches');
+  const logsPath = path.join(HOME, 'Library', 'Logs');
+  const xcodePath = path.join(HOME, 'Library', 'Developer', 'Xcode', 'DerivedData');
+
   try {
-    if (cleanCaches) {
-      const p = path.join(HOME, 'Library', 'Caches');
-      if (fs.existsSync(p)) {
-        execSync(`rm -rf "${p}"/*`);
-        logs.push('Đã làm sạch bộ nhớ đệm người dùng (User Caches).');
+    // 1. Measure initial size
+    let initialCaches = 0;
+    let initialLogs = 0;
+    let initialXcode = 0;
+    let initialTrash = 0;
+
+    if (cleanCaches) initialCaches = getFolderSize(cachesPath);
+    if (cleanLogs) initialLogs = getFolderSize(logsPath);
+    if (cleanXcode) initialXcode = getFolderSize(xcodePath);
+    if (cleanTrash) {
+      try {
+        const appleScript = 'tell application "Finder" to get physical size of trash';
+        const stdout = execSync(`osascript -e '${appleScript}'`).toString().trim();
+        if (stdout && stdout !== 'missing value') {
+          initialTrash = parseInt(stdout, 10);
+        }
+      } catch (e) {
+        initialTrash = 0;
       }
     }
 
-    if (cleanLogs) {
-      const p = path.join(HOME, 'Library', 'Logs');
-      if (fs.existsSync(p)) {
-        execSync(`rm -rf "${p}"/*`);
-        logs.push('Đã làm sạch nhật ký người dùng (User Logs).');
-      }
+    const totalInitial = initialCaches + initialLogs + initialXcode + initialTrash;
+
+    // 2. Perform cleaning
+    if (cleanCaches && fs.existsSync(cachesPath)) {
+      execSync(`rm -rf "${cachesPath}"/*`);
+      logs.push('Đã làm sạch bộ nhớ đệm người dùng (User Caches).');
     }
 
-    if (cleanXcode) {
-      const p = path.join(HOME, 'Library', 'Developer', 'Xcode', 'DerivedData');
-      if (fs.existsSync(p)) {
-        execSync(`rm -rf "${p}"/*`);
-        logs.push('Đã xóa dữ liệu Xcode DerivedData.');
-      }
+    if (cleanLogs && fs.existsSync(logsPath)) {
+      execSync(`rm -rf "${logsPath}"/*`);
+      logs.push('Đã làm sạch nhật ký người dùng (User Logs).');
+    }
+
+    if (cleanXcode && fs.existsSync(xcodePath)) {
+      execSync(`rm -rf "${xcodePath}"/*`);
+      logs.push('Đã xóa dữ liệu Xcode DerivedData.');
     }
 
     if (cleanTrash) {
@@ -674,9 +716,33 @@ app.post('/api/clean-junk', (req, res) => {
       logs.push('Đã dọn dẹp Thùng rác.');
     }
 
-    res.json({ success: true, logs });
+    // 3. Measure final size
+    let finalCaches = 0;
+    let finalLogs = 0;
+    let finalXcode = 0;
+    let finalTrash = 0;
+
+    if (cleanCaches) finalCaches = getFolderSize(cachesPath);
+    if (cleanLogs) finalLogs = getFolderSize(logsPath);
+    if (cleanXcode) finalXcode = getFolderSize(xcodePath);
+    if (cleanTrash) {
+      try {
+        const appleScript = 'tell application "Finder" to get physical size of trash';
+        const stdout = execSync(`osascript -e '${appleScript}'`).toString().trim();
+        if (stdout && stdout !== 'missing value') {
+          finalTrash = parseInt(stdout, 10);
+        }
+      } catch (e) {
+        finalTrash = 0;
+      }
+    }
+
+    const totalFinal = finalCaches + finalLogs + finalXcode + finalTrash;
+    const freedSize = Math.max(0, totalInitial - totalFinal);
+
+    res.json({ success: true, logs, freedSize });
   } catch (e) {
-    res.status(500).json({ error: `Làm sạch thất bại: ${e.message}`, logs });
+    res.status(500).json({ error: `Làm sạch thất bại: ${e.message}`, logs, freedSize: 0 });
   }
 });
 
@@ -831,6 +897,8 @@ app.post('/api/maintenance/dns', (req, res) => {
 // Purge inactive RAM
 app.post('/api/maintenance/ram', (req, res) => {
   try {
+    const ramBefore = getRamStats();
+    
     // macOS purge command
     try {
       execSync('purge');
@@ -839,9 +907,16 @@ app.post('/api/maintenance/ram', (req, res) => {
       execSync(`osascript -e "${appleScript}"`);
     }
 
-    res.json({ success: true, message: 'Đã giải phóng bộ nhớ RAM không hoạt động thành công.' });
+    const ramAfter = getRamStats();
+    const freedSize = Math.max(0, ramAfter.free - ramBefore.free);
+
+    res.json({ 
+      success: true, 
+      message: 'Đã giải phóng bộ nhớ RAM không hoạt động thành công.',
+      freedSize: freedSize
+    });
   } catch (e) {
-    res.status(500).json({ error: `Giải phóng RAM thất bại: ${e.message}` });
+    res.status(500).json({ error: `Giải phóng RAM thất bại: ${e.message}`, freedSize: 0 });
   }
 });
 
@@ -859,33 +934,14 @@ app.get('/api/system-stats', (req, res) => {
     }
 
     // Get real RAM info
-    const totalRam = os.totalmem();
-    let freeRam = os.freemem();
-    
-    // Use vm_stat for accurate macOS free memory calculation
-    try {
-      const vmstat = execSync('vm_stat', { stdio: ['pipe', 'pipe', 'ignore'] }).toString();
-      const pageSizeMatch = vmstat.match(/page size of (\d+) bytes/);
-      const pageSize = pageSizeMatch ? parseInt(pageSizeMatch[1], 10) : 4096;
-      
-      const getPages = (name) => {
-        const match = vmstat.match(new RegExp(`${name}:\\s+(\\d+)`));
-        return match ? parseInt(match[1], 10) : 0;
-      };
-      
-      const freePages = getPages('Pages free');
-      const speculativePages = getPages('Pages speculative');
-      const inactivePages = getPages('Pages inactive');
-      
-      freeRam = (freePages + speculativePages + inactivePages) * pageSize;
-    } catch (err) {}
+    const ram = getRamStats();
 
     return res.json({ 
       total: totalDisk, 
       occupied: occupiedDisk, 
       free: freeDisk,
-      ramTotal: totalRam,
-      ramFree: freeRam
+      ramTotal: ram.total,
+      ramFree: ram.free
     });
   } catch (e) {
     console.error('Failed to get system stats:', e.message);
