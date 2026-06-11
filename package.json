@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently \"npm run server\" \"vite\"",
     "server": "node server.cjs",
-    "build": "vite build",
+    "build": "vite build && javascript-obfuscator dist/assets --output dist/assets",
     "lint": "eslint .",
     "preview": "vite preview"
   },

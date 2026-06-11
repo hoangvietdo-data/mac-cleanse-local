@@ -26,6 +26,13 @@ if (!fs.existsSync(ICON_CACHE_DIR)) {
 // Serve cached icons as static files
 app.use('/api/icons', express.static(ICON_CACHE_DIR));
 
+// Serve static files from the React app build (if it exists)
+const distPath = path.join(__dirname, 'dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+}
+
+
 // Helper: Read and parse Info.plist (hybrid fast parser)
 function readPlist(appPath) {
   try {
@@ -885,6 +892,16 @@ app.get('/api/system-stats', (req, res) => {
   }
   res.json({ total: 0, occupied: 0, free: 0, ramTotal: 0, ramFree: 0 });
 });
+
+// Fallback for SPA routing - serve index.html for any unmatched non-api routes (if dist exists)
+if (fs.existsSync(distPath)) {
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({ error: 'Not Found' });
+    }
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
 
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`Server is running on port ${PORT} (Loopback only)`);
