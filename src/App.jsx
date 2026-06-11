@@ -89,9 +89,9 @@ const TRANSLATIONS = {
 };
 
 // Format bytes to readable string (e.g. GB, MB, KB)
-const formatBytes = (bytes, decimals = 2) => {
+const formatBytes = (bytes, decimals = 2, useDecimal = true) => {
   if (bytes === undefined || bytes === null || bytes === 0) return '0 Bytes';
-  const k = 1024;
+  const k = useDecimal ? 1000 : 1024;
   const dm = decimals < 0 ? 0 : decimals;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -736,7 +736,7 @@ export default function App() {
             <div className="glass-panel" style={{ width: '100%', padding: '15px', fontSize: '12px', boxSizing: 'border-box' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', whiteSpace: 'nowrap' }}>
                 <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{t('ram_free')}</span>
-                <span style={{ color: 'var(--accent-cyan)', fontWeight: 'bold', whiteSpace: 'nowrap' }}>{formatBytes(systemStats.ramFree || 0)}</span>
+                <span style={{ color: 'var(--accent-cyan)', fontWeight: 'bold', whiteSpace: 'nowrap' }}>{formatBytes(systemStats.ramFree || 0, 2, false)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', whiteSpace: 'nowrap' }}>
                 <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{t('disk_free')}</span>
@@ -894,7 +894,7 @@ export default function App() {
                       <div className="icon-holder"><Icons.Memory /></div>
                       <div style={{ fontWeight: '600' }}>{t('memory_ram')}</div>
                       <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '22px' }}>
-                        {loading ? <span className="skeleton" style={{ width: '80px', height: '16px' }} /> : `${formatBytes(systemStats.ramFree || 0)} ${t('free_word')}`}
+                        {loading ? <span className="skeleton" style={{ width: '80px', height: '16px' }} /> : `${formatBytes(systemStats.ramFree || 0, 2, false)} ${t('free_word')}`}
                       </div>
                     </div>
                   </div>
