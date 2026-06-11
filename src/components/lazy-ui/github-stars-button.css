@@ -1,0 +1,33 @@
+.github-stars-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  border: 1px solid var(--glass-border);
+  transition: all 0.2s;
+  backdrop-filter: blur(10px);
+}
+
+.github-stars-btn:hover {
+  background: var(--border-color-hover);
+  border-color: var(--border-color-hover);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.github-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.github-count {
+  padding-left: 6px;
+  border-left: 1px solid var(--border-color-hover);
+  color: var(--text-secondary);
+}

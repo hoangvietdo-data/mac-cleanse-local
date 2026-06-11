@@ -124,14 +124,15 @@ body {
 .app-container {
   display: flex;
   min-height: 100vh;
-  width: 100%;
-  max-width: 1470px;
-  margin: 0 auto;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
   position: relative;
+  overflow: hidden;
 }
 
 .sidebar {
-  width: 270px;
+  width: 260px;
   flex-shrink: 0;
   border-right: 1px solid var(--border-color);
   background: var(--sidebar-bg);
@@ -141,8 +142,6 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  position: sticky;
-  top: 0;
   height: 100vh;
   z-index: 100;
   box-shadow: 10px 0 30px rgba(0, 0, 0, 0.25);
@@ -151,8 +150,9 @@ body {
 .main-content {
   flex: 1;
   padding: 30px 40px 40px;
-  max-width: 1200px;
   box-sizing: border-box;
+  overflow-y: auto;
+  height: 100vh;
 }
 
 /* Top bar (lang toggle + feedback) */
@@ -959,10 +959,16 @@ body {
 
 /* Maintenance Page Cards */
 .maintenance-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  display: flex;
   gap: 20px;
   margin-bottom: 30px;
+  width: 100%;
+}
+
+.maintenance-card-glow {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .maintenance-card {
@@ -972,6 +978,7 @@ body {
   justify-content: space-between;
   gap: 20px;
   min-height: 200px;
+  height: 100%;
 }
 
 .maintenance-header {

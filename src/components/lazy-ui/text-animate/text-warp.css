@@ -1,0 +1,25 @@
+@keyframes text-warp-entrance {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) rotateX(-45deg);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotateX(0deg);
+    filter: blur(0);
+  }
+}
+
+.text-warp-container {
+  display: inline-flex;
+  flex-wrap: wrap;
+  perspective: 1000px;
+}
+
+.text-warp-char {
+  display: inline-block;
+  opacity: 0;
+  transform-origin: 50% 50% -10px;
+  animation: text-warp-entrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

@@ -1,4 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { TextWarp } from "@/components/lazy-ui/text-animate/text-warp";
+import { BorderGlow } from "@/components/lazy-ui/border-glow";
+import { AuroraMesh } from "@/components/lazy-ui/aurora-mesh";
+import { GithubStarsButton } from "@/components/lazy-ui/github-stars-button";
 
 // API Base URL
 const API_BASE = '/api';
@@ -643,8 +647,13 @@ export default function App() {
     }
   });
 
+  const auroraColors = theme === 'dark' 
+    ? ["#000000", "#0a0a0a", "#171717", "#262626", "#404040"]
+    : ["#ffffff", "#f5f5f7", "#e5e5ea", "#d1d1d6", "#aeaeb2"];
+
   return (
     <div className="app-container">
+      <AuroraMesh colors={auroraColors} speed={0.2} wireframe={true} mouseFollow={true} ripple={true} className="w-full h-full" />
       {/* Sidebar Navigation */}
       <aside className="sidebar">
         <div>
@@ -709,15 +718,21 @@ export default function App() {
       {/* Main Dashboard Panel */}
       <main className="main-content">
         <div className="top-bar">
-          <button id="theme-toggle-btn" className="top-bar-btn" onClick={toggleTheme} title="Switch theme">
-            {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
+          <GithubStarsButton username="zivhdinfo" repo="lazy-ui" />
+          <button 
+            id="donate-btn" 
+            className="top-bar-btn" 
+            onClick={() => addLog(lang === 'vi' ? '❤️ Cảm ơn bạn đã nuôi em!' : '❤️ Thank you for your support!', 'success')}
+            title={lang === 'vi' ? 'Nuôi em' : 'Donate'}
+          >
+            ☕ {lang === 'vi' ? 'Nuôi em' : 'Donate'}
           </button>
           <button id="lang-toggle-btn" className="top-bar-btn" onClick={toggleLang} title="Switch language">
             {lang === 'vi' ? '🇬🇧 EN' : '🇻🇳 VI'}
           </button>
-          <a id="feedback-btn" className="top-bar-btn" href="mailto:vietdohoang.work@gmail.com?subject=MacCleanse%20Local%20Feedback" title="Send feedback">
-            ✉ {t('feedback')}
-          </a>
+          <button id="theme-toggle-btn" className="top-bar-btn" onClick={toggleTheme} title="Switch theme">
+            {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
+          </button>
         </div>
         
         {/* ========================================== */}
@@ -727,7 +742,7 @@ export default function App() {
           <div>
             <header className="header">
               <div className="header-title">
-                <h1>{t('smart_scan_title')}</h1>
+                <h1><TextWarp text={t('smart_scan_title')} trigger={activeTab} /></h1>
                 <p>{t('smart_scan_desc')}</p>
               </div>
             </header>
@@ -818,7 +833,7 @@ export default function App() {
           <div>
             <header className="header">
               <div className="header-title">
-                <h1>{t('sys_junk_title')}</h1>
+                <h1><TextWarp text={t('sys_junk_title')} trigger={activeTab} /></h1>
                 <p>{t('sys_junk_desc')}</p>
               </div>
             </header>
@@ -931,7 +946,7 @@ export default function App() {
           <div>
             <header className="header">
               <div className="header-title">
-                <h1>{t('large_files_title')}</h1>
+                <h1><TextWarp text={t('large_files_title')} trigger={activeTab} /></h1>
                 <p>{t('large_files_desc')}</p>
               </div>
             </header>
@@ -1062,7 +1077,7 @@ export default function App() {
           <div>
             <header className="header">
               <div className="header-title">
-                <h1>{t('opt_title')}</h1>
+                <h1><TextWarp text={t('opt_title')} trigger={activeTab} /></h1>
                 <p>Theo dõi và chấm dứt các ứng dụng/tiến trình đang chạy ngầm gây tốn CPU & RAM làm chậm máy Mac của bạn.</p>
               </div>
               <button className="btn-secondary" onClick={() => loadTabData('optimization')} disabled={loading}>
@@ -1145,45 +1160,49 @@ export default function App() {
           <div>
             <header className="header">
               <div className="header-title">
-                <h1>{t('maint_title')}</h1>
+                <h1><TextWarp text={t('maint_title')} trigger={activeTab} /></h1>
                 <p>Chạy các script bảo trì để phục hồi hiệu suất và tốc độ phản hồi gốc của hệ điều hành macOS.</p>
               </div>
             </header>
 
             <div className="maintenance-grid">
-              <div className="glass-panel maintenance-card">
-                <div className="maintenance-header">
-                  <div className="maintenance-icon-box"><Icons.Memory /></div>
-                  <div className="maintenance-content">
-                    <h3>Giải phóng bộ nhớ RAM</h3>
-                    <p>Giải phóng lượng RAM không hoạt động đang được giữ làm bộ đệm ổ đĩa. Giúp lấy lại dung lượng bộ nhớ khả dụng cho các ứng dụng khác ngay lập tức.</p>
+              <BorderGlow mode="cursor" cursorRadius={180} colors={["#262626", "#525252", "#ffffff"]} className="maintenance-card-glow">
+                <div className="maintenance-card">
+                  <div className="maintenance-header">
+                    <div className="maintenance-icon-box"><Icons.Memory /></div>
+                    <div className="maintenance-content">
+                      <h3>Giải phóng bộ nhớ RAM</h3>
+                      <p>Giải phóng lượng RAM không hoạt động đang được giữ làm bộ đệm ổ đĩa. Giúp lấy lại dung lượng bộ nhớ khả dụng cho các ứng dụng khác ngay lập tức.</p>
+                    </div>
                   </div>
+                  <button 
+                    className="btn-primary" 
+                    onClick={() => runMaintenance('ram')}
+                    disabled={actionInProgress}
+                  >
+                    Giải phóng RAM
+                  </button>
                 </div>
-                <button 
-                  className="btn-primary" 
-                  onClick={() => runMaintenance('ram')}
-                  disabled={actionInProgress}
-                >
-                  Giải phóng RAM
-                </button>
-              </div>
+              </BorderGlow>
 
-              <div className="glass-panel maintenance-card">
-                <div className="maintenance-header">
-                  <div className="maintenance-icon-box"><Icons.Refresh /></div>
-                  <div className="maintenance-content">
-                    <h3>Làm sạch Cache DNS</h3>
-                    <p>Làm mới DNS resolver. Khắc phục các vấn đề liên quan đến tải trang web chậm hoặc lỗi không thể truy cập các địa chỉ web mới thay đổi.</p>
+              <BorderGlow mode="cursor" cursorRadius={180} colors={["#262626", "#525252", "#ffffff"]} className="maintenance-card-glow">
+                <div className="maintenance-card">
+                  <div className="maintenance-header">
+                    <div className="maintenance-icon-box"><Icons.Refresh /></div>
+                    <div className="maintenance-content">
+                      <h3>Làm sạch Cache DNS</h3>
+                      <p>Làm mới DNS resolver. Khắc phục các vấn đề liên quan đến tải trang web chậm hoặc lỗi không thể truy cập các địa chỉ web mới thay đổi.</p>
+                    </div>
                   </div>
+                  <button 
+                    className="btn-primary" 
+                    onClick={() => runMaintenance('dns')}
+                    disabled={actionInProgress}
+                  >
+                    Xóa Cache DNS
+                  </button>
                 </div>
-                <button 
-                  className="btn-primary" 
-                  onClick={() => runMaintenance('dns')}
-                  disabled={actionInProgress}
-                >
-                  Xóa Cache DNS
-                </button>
-              </div>
+              </BorderGlow>
             </div>
           </div>
         )}
@@ -1195,7 +1214,7 @@ export default function App() {
           <div>
             <header className="header">
               <div className="header-title">
-                <h1>{t('slim_title')}</h1>
+                <h1><TextWarp text={t('slim_title')} trigger={activeTab} /></h1>
                 <p>{t('slim_desc')}</p>
               </div>
               <button className="btn-secondary" onClick={() => loadTabData('app_slimmer')} disabled={loading}>

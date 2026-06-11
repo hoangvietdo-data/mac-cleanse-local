@@ -877,16 +877,8 @@ app.post('/api/kill-process', (req, res) => {
 // Flush DNS cache
 app.post('/api/maintenance/dns', (req, res) => {
   try {
-    // Flush command
-    const flushCmd = 'dscacheutil -flushcache; killall -HUP mDNSResponder';
-    
-    // Attempt standard run, if fails prompt admin privileges
-    try {
-      execSync(flushCmd);
-    } catch (err) {
-      const appleScript = `do shell script "${flushCmd.replace(/"/g, '\\"')}" with administrator privileges`;
-      execSync(`osascript -e "${appleScript}"`);
-    }
+    const command = "osascript -e 'do shell script \"sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder\" with administrator privileges'";
+    execSync(command);
 
     res.json({ success: true, message: 'Bộ nhớ đệm DNS đã được làm mới thành công.' });
   } catch (e) {
@@ -899,13 +891,8 @@ app.post('/api/maintenance/ram', (req, res) => {
   try {
     const ramBefore = getRamStats();
     
-    // macOS purge command
-    try {
-      execSync('purge');
-    } catch (err) {
-      const appleScript = 'do shell script "purge" with administrator privileges';
-      execSync(`osascript -e "${appleScript}"`);
-    }
+    const command = "osascript -e 'do shell script \"sudo purge\" with administrator privileges'";
+    execSync(command);
 
     const ramAfter = getRamStats();
     const freedSize = Math.max(0, ramAfter.free - ramBefore.free);
