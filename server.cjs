@@ -178,6 +178,24 @@ function getFolderSizeFast(dirPath) {
   return totalSize;
 }
 
+// Helper: Get trash size using Finder AppleScript mapping to list item sizes (bypasses TCC Operation Not Permitted block)
+function getTrashSize() {
+  try {
+    const appleScript = 'tell application "Finder" to get physical size of every item of trash';
+    const stdout = execSync(`osascript -e '${appleScript}'`, { stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
+    if (stdout) {
+      const parts = stdout.split(',').map(p => {
+        const val = parseInt(p.trim(), 10);
+        return isNaN(val) ? 0 : val;
+      });
+      return parts.reduce((a, b) => a + b, 0);
+    }
+  } catch (e) {
+    // Fail silently, default to 0
+  }
+  return 0;
+}
+
 // Helper: Get sizes of all library folders in bulk (caches, app support, containers, etc.)
 function getBulkCacheSizes() {
   const sizes = {};
@@ -641,16 +659,7 @@ app.get('/api/junk-stats', (req, res) => {
   const xcodeSize = getFolderSize(xcodePath);
 
   // Read trash size via AppleScript Finder API to avoid TCC block
-  let trashSize = 0;
-  try {
-    const appleScript = 'tell application "Finder" to get physical size of trash';
-    const stdout = execSync(`osascript -e '${appleScript}'`).toString().trim();
-    if (stdout && stdout !== 'missing value') {
-      trashSize = parseInt(stdout, 10);
-    }
-  } catch (e) {
-    trashSize = 0;
-  }
+  const trashSize = getTrashSize();
 
   res.json({
     userCaches: cacheSize,
@@ -682,15 +691,7 @@ app.post('/api/clean-junk', (req, res) => {
     if (cleanLogs) initialLogs = getFolderSize(logsPath);
     if (cleanXcode) initialXcode = getFolderSize(xcodePath);
     if (cleanTrash) {
-      try {
-        const appleScript = 'tell application "Finder" to get physical size of trash';
-        const stdout = execSync(`osascript -e '${appleScript}'`).toString().trim();
-        if (stdout && stdout !== 'missing value') {
-          initialTrash = parseInt(stdout, 10);
-        }
-      } catch (e) {
-        initialTrash = 0;
-      }
+      initialTrash = getTrashSize();
     }
 
     const totalInitial = initialCaches + initialLogs + initialXcode + initialTrash;
@@ -726,15 +727,7 @@ app.post('/api/clean-junk', (req, res) => {
     if (cleanLogs) finalLogs = getFolderSize(logsPath);
     if (cleanXcode) finalXcode = getFolderSize(xcodePath);
     if (cleanTrash) {
-      try {
-        const appleScript = 'tell application "Finder" to get physical size of trash';
-        const stdout = execSync(`osascript -e '${appleScript}'`).toString().trim();
-        if (stdout && stdout !== 'missing value') {
-          finalTrash = parseInt(stdout, 10);
-        }
-      } catch (e) {
-        finalTrash = 0;
-      }
+      finalTrash = getTrashSize();
     }
 
     const totalFinal = finalCaches + finalLogs + finalXcode + finalTrash;
@@ -916,8 +909,8 @@ app.get('/api/system-stats', (req, res) => {
     if (lines.length >= 2) {
       const parts = lines[1].replace(/\s+/g, ' ').split(' ');
       totalDisk = parseInt(parts[1], 10) * 1024; // KB to Bytes
-      occupiedDisk = parseInt(parts[2], 10) * 1024;
       freeDisk = parseInt(parts[3], 10) * 1024;
+      occupiedDisk = totalDisk - freeDisk; // Calculate real occupied container space instead of System volume used space
     }
 
     // Get real RAM info
