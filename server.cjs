@@ -897,7 +897,18 @@ app.post('/api/delete-file', (req, res) => {
     }
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: `Xóa tệp thất bại: ${e.message}` });
+    if (e.code === 'EACCES' || e.code === 'EPERM') {
+      try {
+        const { execSync } = require('child_process');
+        // Fallback to AppleScript for administrator privileges
+        execSync(`osascript -e 'do shell script "rm -rf \\"${filePath}\\"" with administrator privileges'`);
+        res.json({ success: true, message: 'Đã xoá bằng quyền Admin.' });
+      } catch (adminError) {
+        res.status(500).json({ error: `Xóa tệp thất bại (từ chối quyền Admin).` });
+      }
+    } else {
+      res.status(500).json({ error: `Xóa tệp thất bại: ${e.message}` });
+    }
   }
 });
 
@@ -1001,7 +1012,8 @@ function scanDirForSunburst(dirPath, maxDepth, currentDepth = 0) {
   try {
     const items = fs.readdirSync(dirPath, { withFileTypes: true });
     for (const item of items) {
-      if (item.name.startsWith('.')) continue; // skip hidden for speed
+      // Bỏ qua thư mục .DS_Store để tăng tốc một chút nhưng giữ lại các file ẩn khác
+      if (item.name === '.DS_Store') continue; 
       
       const fullPath = path.join(dirPath, item.name);
       
