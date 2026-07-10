@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 import { 
-  HardDrive, Folder, Search, ChevronRight, X
+  HardDrive, Folder, Search, ChevronRight, X, Sparkles, FileText
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 
 
 const formatBytes = (bytes: number) => {
@@ -25,6 +26,12 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
   const [hideSystem, setHideSystem] = useState(true);
   const [showPackages, setShowPackages] = useState(false);
   const [largeOnly, setLargeOnly] = useState(false);
+  
+  // Search & AI
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAI, setShowAI] = useState(false);
+  const [apiKeys, setApiKeys] = useState(localStorage.getItem('gemini_api_keys') || '');
+  const [generatingAI, setGeneratingAI] = useState(false);
   
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -79,11 +86,12 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
     }
   }, [hideSystem, showPackages, largeOnly]);
 
+  // Redraw when sunburstData or searchQuery changes
   useEffect(() => {
     if (status === 'ANALYZED') {
       drawSunburst();
     }
-  }, [status]);
+  }, [status, sunburstData, searchQuery]);
 
   const getFullPath = (node: any) => {
     if (!node) return '';
@@ -220,11 +228,26 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
       .domain([0, 4])
       .range(["rgba(161,255,0,0.1)", "rgba(161,255,0,0.6)"]);
 
+    const q = searchQuery.toLowerCase().trim();
+    const searchMatches = new Set();
+    if (q.length > 0) {
+      root.each(d => {
+        if (d.data.name.toLowerCase().includes(q)) {
+          let curr = d;
+          while (curr) {
+            searchMatches.add(curr);
+            curr = curr.parent;
+          }
+        }
+      });
+    }
+
     const path = svg.append("g")
       .selectAll("path")
       .data(root.descendants().filter(d => d.depth && d.x1 - d.x0 > 0.01))
       .join("path")
         .attr("fill", d => color(d.depth))
+        .attr("opacity", d => q.length === 0 || searchMatches.has(d) ? 1 : 0.15)
         .attr("stroke", "rgba(161,255,0,0.1)")
         .attr("stroke-width", "0.5")
         .attr("d", arc)
@@ -295,6 +318,9 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
     updateCenterText(root);
 
     function clicked(event: any, p: any) {
+      // Prevent zooming if they clicked a node that is almost transparent (filtered out by search)
+      if (q.length > 0 && !searchMatches.has(p)) return;
+      
       parent.datum(p.parent || root);
       updateCenterText(p);
       setSelectedNode(p);
@@ -330,6 +356,70 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
     function arcVisible(d: any) {
       return d.y1 <= radius && d.y0 >= 0 && d.x1 > d.x0;
     }
+  };
+
+  const generateAIReport = async () => {
+    if (!apiKeys.trim()) {
+      setShowAI(true);
+      return;
+    }
+    if (!sunburstData) return;
+
+    setGeneratingAI(true);
+    
+    // Extract top files
+    const extractTopFiles = (node: any, arr: any[] = []) => {
+      if (node.children) {
+        node.children.forEach((c: any) => extractTopFiles(c, arr));
+      } else {
+        arr.push({ name: node.name, size: node.value });
+      }
+      return arr;
+    };
+    
+    const files = extractTopFiles(sunburstData);
+    files.sort((a, b) => b.size - a.size);
+    const topFiles = files.slice(0, 50).map(f => `${f.name}: ${formatBytes(f.size)}`).join('\\n');
+
+    const prompt = `You are a macOS clean-up expert. Based on the following largest files on the user's disk, write a brief, professional report in ${lang === 'vi' ? 'Vietnamese' : 'English'} analyzing their disk usage, pointing out what takes the most space, and giving actionable advice on what they can safely delete. Use plain text (no markdown formatting like ** or ##).\\n\\nTop files:\\n${topFiles}`;
+
+    const keys = apiKeys.split(',').map(k => k.trim()).filter(k => k);
+    let resultText = '';
+
+    for (const key of keys) {
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+        
+        if (!response.ok) throw new Error('API Error');
+        const data = await response.json();
+        resultText = data.candidates[0].content.parts[0].text;
+        break;
+      } catch (e) {
+        console.warn('Key failed, trying next...');
+      }
+    }
+
+    setGeneratingAI(false);
+
+    if (!resultText) {
+      alert(lang === 'vi' ? 'Lỗi: Tất cả API Key đều không hoạt động hoặc bị giới hạn!' : 'Error: All API Keys failed or rate limited!');
+      return;
+    }
+
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Mac Cleanse Local - AI Analysis Report", 15, 20);
+    
+    doc.setFontSize(11);
+    
+    const splitText = doc.splitTextToSize(resultText, 180);
+    doc.text(splitText, 15, 35);
+    
+    doc.save(`mac_cleanse_ai_report_${new Date().getTime()}.pdf`);
   };
 
   return (
@@ -407,6 +497,20 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
         {status === 'ANALYZED' && (
           <div className="flex-1 overflow-y-auto pr-2 space-y-6">
             <div className="space-y-3">
+              <p className="text-[10px] text-text-sub uppercase tracking-widest font-mono font-bold">{lang === 'vi' ? 'Tìm kiếm' : 'Search'}</p>
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted" />
+                <input 
+                  type="text" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={lang === 'vi' ? 'Tìm file/folder...' : 'Search files...'}
+                  className="w-full bg-black/20 border border-border-main text-text-main text-sm py-2 pl-9 pr-3 outline-none focus:border-accent transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-6 border-t border-border-main">
               <p className="text-[10px] text-text-sub uppercase tracking-widest font-mono font-bold">{lang === 'vi' ? 'Bộ lọc' : 'Filters'}</p>
               
               <div className="space-y-2">
@@ -434,6 +538,22 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
             <div className="space-y-3 pt-6 border-t border-border-main">
               <p className="text-[10px] text-text-sub uppercase tracking-widest font-mono font-bold">{lang === 'vi' ? 'Thao tác nhanh' : 'Quick Actions'}</p>
               <button 
+                onClick={generateAIReport}
+                disabled={generatingAI}
+                className="w-full py-2 flex items-center justify-center gap-2 bg-accent/10 border border-accent/30 text-accent text-xs font-mono hover:bg-accent/20 transition-colors px-3">
+                <Sparkles className="w-3 h-3" />
+                {generatingAI 
+                  ? (lang === 'vi' ? 'Đang tạo...' : 'Generating...') 
+                  : (lang === 'vi' ? 'AI PDF Report' : 'AI PDF Report')}
+              </button>
+              
+              <button 
+                onClick={() => setShowAI(true)}
+                className="w-full py-2 flex items-center justify-center gap-2 border border-border-main text-text-main text-xs font-mono hover:bg-white/5 transition-colors px-3">
+                {lang === 'vi' ? 'Cấu hình AI' : 'AI Settings'}
+              </button>
+
+              <button 
                 onClick={() => {
                   if (!sunburstData) return;
                   const report = JSON.stringify(sunburstData, null, 2);
@@ -441,12 +561,12 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
                   a.href = url;
-                  a.download = `mac_cleanse_report_${new Date().getTime()}.json`;
+                  a.download = `mac_cleanse_raw_${new Date().getTime()}.json`;
                   a.click();
                   URL.revokeObjectURL(url);
                 }}
                 className="w-full py-2 border border-border-main text-text-main text-xs font-mono hover:bg-white/5 transition-colors text-left px-3">
-                {lang === 'vi' ? 'Xuất báo cáo...' : 'Export Analysis Report...'}
+                {lang === 'vi' ? 'Xuất JSON thô...' : 'Export Raw JSON...'}
               </button>
               <button onClick={() => { startScan(); }} className="w-full py-2 border border-border-main text-text-main text-xs font-mono hover:bg-white/5 transition-colors text-left px-3">
                 {lang === 'vi' ? 'Quét lại' : 'Rescan Drive'}
@@ -455,6 +575,41 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
           </div>
         )}
       </div>
+
+      {/* AI Settings Modal */}
+      {showAI && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="bg-bg-panel border border-border-main p-6 w-full max-w-md shadow-2xl relative">
+            <button onClick={() => setShowAI(false)} className="absolute top-4 right-4 text-text-muted hover:text-white">
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-accent font-mono mb-4 text-lg flex items-center gap-2">
+              <Sparkles className="w-5 h-5" />
+              {lang === 'vi' ? 'Cấu hình API Key (AI)' : 'AI API Configuration'}
+            </h3>
+            <p className="text-sm text-text-muted mb-4">
+              {lang === 'vi' 
+                ? 'Nhập Google Gemini API Key để AI có thể tự động phân tích đĩa và tạo PDF báo cáo. Bạn có thể nhập nhiều key cách nhau bằng dấu phẩy (,).'
+                : 'Enter Google Gemini API Key(s) to generate PDF reports. You can enter multiple keys separated by commas.'}
+            </p>
+            <textarea 
+              value={apiKeys}
+              onChange={(e) => setApiKeys(e.target.value)}
+              placeholder="AIzaSy... , AIzaSy..."
+              className="w-full h-24 bg-black/50 border border-border-main text-text-main p-3 text-sm font-mono outline-none focus:border-accent mb-4"
+            />
+            <button 
+              onClick={() => {
+                localStorage.setItem('gemini_api_keys', apiKeys);
+                setShowAI(false);
+              }}
+              className="w-full py-3 bg-accent text-[#080808] font-bold uppercase text-xs tracking-widest hover:bg-white transition-colors"
+            >
+              {lang === 'vi' ? 'Lưu cấu hình' : 'Save Configuration'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Center Visualization */}
       <div className="flex-1 relative flex items-center justify-center p-8 z-10" ref={containerRef}>
