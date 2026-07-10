@@ -3,7 +3,6 @@ import * as d3 from 'd3';
 import { 
   HardDrive, Folder, Search, ChevronRight, X, Sparkles, FileText
 } from 'lucide-react';
-import { jsPDF } from 'jspdf';
 
 
 const formatBytes = (bytes: number) => {
@@ -434,16 +433,52 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
       return;
     }
 
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text("Mac Cleanse Local - AI Analysis Report", 15, 20);
-    
-    doc.setFontSize(11);
-    
-    const splitText = doc.splitTextToSize(resultText, 180);
-    doc.text(splitText, 15, 35);
-    
-    doc.save(`mac_cleanse_ai_report_${new Date().getTime()}.pdf`);
+    // Use native browser print for perfect Unicode/Vietnamese support
+    const printWindow = window.open('', '', 'width=800,height=800');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Mac Cleanse Local - AI Analysis Report</title>
+            <style>
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+                padding: 40px; 
+                color: #222; 
+                line-height: 1.6; 
+              }
+              h1 { 
+                color: #000; 
+                font-size: 24px; 
+                border-bottom: 4px solid #a1ff00; 
+                padding-bottom: 10px; 
+                margin-bottom: 20px;
+              }
+              .content { 
+                white-space: pre-wrap; 
+                font-size: 14px;
+              }
+              @media print {
+                body { padding: 0; }
+                @page { margin: 2cm; }
+              }
+            </style>
+          </head>
+          <body>
+            <h1>Mac Cleanse Local - AI Analysis Report</h1>
+            <div class="content">${resultText.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+            <script>
+              window.onload = () => {
+                window.print();
+                // Close window after printing dialogue is closed
+                setTimeout(() => window.close(), 500);
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
   };
 
   return (
