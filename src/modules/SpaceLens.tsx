@@ -4,72 +4,6 @@ import {
   HardDrive, Folder, Search, ChevronRight, X
 } from 'lucide-react';
 
-const MOCK_HD_DATA = {
-  name: "Macintosh HD",
-  children: [
-    {
-      name: "Applications",
-      children: [
-        { name: "Adobe Creative Cloud", value: 45000000000, files: 1240 },
-        { name: "Xcode.app", value: 30000000000, files: 1 },
-        { name: "Final Cut Pro.app", value: 25000000000, files: 1 },
-        { name: "Google Chrome.app", value: 2000000000, files: 1 },
-        { name: "Other Apps", value: 48000000000, files: 84 },
-      ]
-    },
-    {
-      name: "Users",
-      children: [
-        { 
-          name: "macbook", 
-          children: [
-            { name: "Downloads", value: 80000000000, files: 452 },
-            { name: "Documents", value: 50000000000, files: 12045 },
-            { name: "Desktop", value: 20000000000, files: 120 },
-            { 
-              name: "Library", 
-              children: [
-                { name: "Caches", value: 25000000000, files: 8540 },
-                { name: "Application Support", value: 10000000000, files: 1250 },
-                { name: "Containers", value: 5000000000, files: 603 }
-              ]
-            },
-          ]
-        },
-        { name: "Shared", value: 10000000000, files: 45 }
-      ]
-    },
-    {
-      name: "System",
-      children: [
-        { name: "Library", value: 40000000000, files: 8450 },
-        { name: "CoreServices", value: 10000000000, files: 412 },
-      ]
-    },
-    {
-      name: "Library",
-      children: [
-        { name: "Caches", value: 50000000000, files: 12040 },
-        { name: "Application Support", value: 20000000000, files: 410 },
-        { name: "Containers", value: 10000000000, files: 852 }
-      ]
-    },
-    {
-      name: "Developer",
-      children: [
-        { name: "Xcode", value: 32000000000, files: 10540 }
-      ]
-    }
-  ]
-};
-
-function computeValues(node: any) {
-  if (node.children) {
-    node.value = node.children.reduce((acc: number, child: any) => acc + computeValues(child), 0);
-  }
-  return node.value || 0;
-}
-computeValues(MOCK_HD_DATA);
 
 const formatBytes = (bytes: number) => {
   if (!bytes || bytes === 0) return '0 B';
@@ -84,34 +18,46 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
   const [scanProgress, setScanProgress] = useState(0);
   const [scanPath, setScanPath] = useState('');
   const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [basePath, setBasePath] = useState('Macintosh HD');
+  const [sunburstData, setSunburstData] = useState<any>(null);
   
-  const svgRef = useRef(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const startScan = () => {
+  const startScan = async () => {
     setStatus('SCANNING');
-    let progress = 0;
-    const paths = [
-      '/System/Library/CoreServices',
-      '/Users/macbook/Downloads/Design_Assets',
-      '/Applications/Xcode.app/Contents/Developer',
-      '/Library/Application Support/Adobe',
-      '/Users/macbook/Library/Caches/Google',
-    ];
+    setScanProgress(0);
     
+    // Simulate some initial progress for UX
     const interval = setInterval(() => {
-      progress += Math.random() * 5 + 2;
-      if (progress >= 100) {
-        progress = 100;
-        clearInterval(interval);
+      setScanProgress(p => p < 90 ? p + (90 - p) * 0.1 : p);
+    }, 150);
+
+    try {
+      const res = await fetch('/api/scan-space-lens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scanPath: basePath === 'Macintosh HD' ? '/' : basePath })
+      });
+      const data = await res.json();
+      
+      clearInterval(interval);
+      setScanProgress(100);
+      
+      if (data.error) {
+        alert(data.error);
+        setStatus('IDLE');
+      } else {
+        setSunburstData(data);
         setTimeout(() => setStatus('ANALYZED'), 500);
       }
-      setScanProgress(progress);
-      setScanPath(paths[Math.floor(Math.random() * paths.length)]);
-    }, 150);
+    } catch (e) {
+      clearInterval(interval);
+      console.error(e);
+      alert('Failed to scan disk.');
+      setStatus('IDLE');
+    }
   };
-
-  const [basePath, setBasePath] = useState('Macintosh HD');
 
   useEffect(() => {
     if (status === 'ANALYZED') {
@@ -176,8 +122,34 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
       const data = await res.json();
       if (data.path) {
         setBasePath(data.path);
-        MOCK_HD_DATA.name = data.path.split('/').pop() || data.path;
-        startScan();
+        // Ngay sau khi setBasePath, trigger startScan
+        // Wait, startScan uses the old state of basePath if we call it directly here.
+        // It's better to pass it or let a useEffect handle it.
+        // For simplicity, we can fetch immediately using data.path
+        setStatus('SCANNING');
+        setScanProgress(0);
+        
+        const interval = setInterval(() => {
+          setScanProgress(p => p < 90 ? p + (90 - p) * 0.1 : p);
+        }, 150);
+
+        const scanRes = await fetch('/api/scan-space-lens', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scanPath: data.path })
+        });
+        const scanData = await scanRes.json();
+        
+        clearInterval(interval);
+        setScanProgress(100);
+        
+        if (scanData.error) {
+          alert(scanData.error);
+          setStatus('IDLE');
+        } else {
+          setSunburstData(scanData);
+          setTimeout(() => setStatus('ANALYZED'), 500);
+        }
       }
     } catch (e) {
       console.error('Select folder canceled or error', e);
@@ -185,7 +157,7 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
   };
 
   const drawSunburst = () => {
-    if (!svgRef.current || !containerRef.current) return;
+    if (!svgRef.current || !containerRef.current || !sunburstData) return;
     
     const container = containerRef.current;
     const width = container.clientWidth;
@@ -200,7 +172,7 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
       .style("height", "100%")
       .style("font", "10px sans-serif");
 
-    const root = d3.hierarchy(MOCK_HD_DATA)
+    const root = d3.hierarchy(sunburstData)
       .sum(d => Math.max(0, d.value))
       .sort((a, b) => (b.value || 0) - (a.value || 0));
 
@@ -350,18 +322,27 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
 
         {status === 'IDLE' && (
           <div className="flex-1 flex flex-col justify-center space-y-6">
-            <div className="p-4 border border-accent/30 bg-accent/5 rounded space-y-4">
-              <div className="flex items-center gap-3">
-                <HardDrive className="w-6 h-6 text-accent" />
-                <div>
-                  <p className="text-sm font-bold text-text-main">Macintosh HD</p>
-                  <p className="text-xs text-text-muted font-mono">{formatBytes(MOCK_HD_DATA.value)} Total</p>
-                </div>
+            <div className="flex-1 flex flex-col items-center justify-center text-center opacity-50 space-y-3">
+              <div className="w-12 h-12 border border-dashed border-text-muted rounded-full flex items-center justify-center">
+                <HardDrive className="w-5 h-5 text-text-muted" />
+              </div>
+              <div>
+                <p className="text-sm text-text-main">
+                  {lang === 'vi' ? 'Sẵn sàng quét' : 'Ready to Scan'}
+                </p>
+                {sunburstData && (
+                  <p className="text-xs text-text-muted font-mono">{formatBytes(sunburstData.value)} Total</p>
+                )}
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs text-text-muted mb-2">
+                <span>{basePath}</span>
               </div>
               <button 
                 onClick={() => {
                   setBasePath('Macintosh HD');
-                  MOCK_HD_DATA.name = 'Macintosh HD';
                   startScan();
                 }}
                 className="w-full py-3 bg-accent text-[#080808] font-bold uppercase text-[10px] tracking-[0.2em] hover:bg-white transition-colors"
@@ -470,7 +451,7 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
                 </h3>
                 <p className="text-accent font-mono text-sm">{formatBytes(selectedNode.value)}</p>
                 <p className="text-xs text-text-muted pt-1">
-                  {(selectedNode.value / MOCK_HD_DATA.value * 100).toFixed(1)}% {lang === 'vi' ? 'của' : 'of'} Macintosh HD
+                  {sunburstData && ((selectedNode.value / sunburstData.value * 100).toFixed(1))}% {lang === 'vi' ? 'của' : 'of'} {basePath}
                 </p>
               </div>
 

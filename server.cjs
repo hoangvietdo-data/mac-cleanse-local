@@ -983,6 +983,73 @@ app.post('/api/maintenance/ram', (req, res) => {
 });
 
 // Leftover Scanner Endpoints
+function scanDirForSunburst(dirPath, maxDepth, currentDepth = 0) {
+  if (currentDepth > maxDepth) return null;
+  
+  let result = {
+    name: path.basename(dirPath) || dirPath,
+    value: 0,
+    children: [],
+    files: 0
+  };
+
+  try {
+    const items = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const item of items) {
+      if (item.name.startsWith('.')) continue; // skip hidden for speed
+      
+      const fullPath = path.join(dirPath, item.name);
+      
+      if (item.isDirectory()) {
+        const child = scanDirForSunburst(fullPath, maxDepth, currentDepth + 1);
+        if (child && (child.value > 0 || child.children.length > 0)) {
+          result.children.push(child);
+          result.value += child.value;
+          result.files += child.files;
+        }
+      } else if (item.isFile()) {
+        try {
+          const stats = fs.statSync(fullPath);
+          result.value += stats.size;
+          result.files += 1;
+        } catch(e) {}
+      }
+    }
+  } catch(e) {}
+
+  result.children = result.children.filter(c => c.value > 0);
+  result.children.sort((a, b) => b.value - a.value);
+  
+  // To avoid massive payloads, keep top 50 children
+  if (result.children.length > 50) {
+    result.children = result.children.slice(0, 50);
+  }
+  
+  return result;
+}
+
+app.post('/api/scan-space-lens', (req, res) => {
+  const { scanPath } = req.body;
+  if (!scanPath) return res.status(400).json({ error: 'Missing scanPath' });
+
+  // Use a depth limit of 3 for fast prototyping. You can adjust this later.
+  const targetPath = scanPath === 'Macintosh HD' ? '/' : scanPath;
+  const maxDepth = 4;
+  
+  try {
+    const data = scanDirForSunburst(targetPath, maxDepth, 0);
+    if (!data) return res.status(404).json({ error: 'Scan failed or empty.' });
+    
+    // Override name if it's root
+    if (targetPath === '/') data.name = 'Macintosh HD';
+    
+    return res.json(data);
+  } catch (error) {
+    console.error('Scan space lens error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/scan-leftovers', (req, res) => {
   try {
     const installedIds = new Set();
