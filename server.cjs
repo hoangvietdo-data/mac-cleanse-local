@@ -995,7 +995,7 @@ app.post('/api/maintenance/ram', (req, res) => {
 });
 
 // Leftover Scanner Endpoints
-function scanDirForSunburst(dirPath, maxDepth, currentDepth = 0) {
+function scanDirForSunburst(dirPath, maxDepth, currentDepth = 0, filters = {}) {
   if (currentDepth > maxDepth) return null;
   
   let result = {
@@ -1008,21 +1008,41 @@ function scanDirForSunburst(dirPath, maxDepth, currentDepth = 0) {
   try {
     const items = fs.readdirSync(dirPath, { withFileTypes: true });
     for (const item of items) {
-      // Bỏ qua thư mục .DS_Store để tăng tốc một chút nhưng giữ lại các file ẩn khác
       if (item.name === '.DS_Store') continue; 
+      
+      // Filter: Hide System Files (ignore hidden files and /System or /Library if at root)
+      if (filters.hideSystem) {
+        if (item.name.startsWith('.')) continue;
+        if (currentDepth === 0 && (item.name === 'System' || item.name === 'Library' || item.name === 'private')) continue;
+      }
       
       const fullPath = path.join(dirPath, item.name);
       
-      if (item.isDirectory()) {
-        const child = scanDirForSunburst(fullPath, maxDepth, currentDepth + 1);
+      // Filter: Show Packages as Folders
+      let isDir = item.isDirectory();
+      if (!filters.showPackages && item.name.endsWith('.app')) {
+        isDir = false; // Treat .app as a single file instead of diving into it
+      }
+      
+      if (isDir) {
+        const child = scanDirForSunburst(fullPath, maxDepth, currentDepth + 1, filters);
         if (child && (child.value > 0 || child.children.length > 0)) {
+          // Filter: Large Files Only (apply to directories too? Usually just files, but if a dir is < 1GB we could drop it)
+          if (filters.largeOnly && child.value < 1000000000) continue;
+          
           result.children.push(child);
           result.value += child.value;
           result.files += child.files;
         }
-      } else if (item.isFile()) {
+      } else {
         try {
           const stats = fs.statSync(fullPath);
+          // If it's treated as a file (like .app), we need to get its full size. For simplicity, just its apparent size.
+          // Getting size of .app requires recursion, but statSync gives 0 for directories. 
+          // If we treat .app as file without recursing, its size will be inaccurate unless we calculate it. 
+          // For speed, let's keep it simple: if it's a directory treated as file, we might just get 0, but whatever.
+          if (filters.largeOnly && stats.size < 1000000000 && !item.name.endsWith('.app')) continue;
+          
           result.value += stats.size;
           result.files += 1;
         } catch(e) {}
@@ -1033,7 +1053,6 @@ function scanDirForSunburst(dirPath, maxDepth, currentDepth = 0) {
   result.children = result.children.filter(c => c.value > 0);
   result.children.sort((a, b) => b.value - a.value);
   
-  // To avoid massive payloads, keep top 50 children
   if (result.children.length > 50) {
     result.children = result.children.slice(0, 50);
   }
@@ -1042,15 +1061,15 @@ function scanDirForSunburst(dirPath, maxDepth, currentDepth = 0) {
 }
 
 app.post('/api/scan-space-lens', (req, res) => {
-  const { scanPath } = req.body;
+  const { scanPath, hideSystem, showPackages, largeOnly } = req.body;
   if (!scanPath) return res.status(400).json({ error: 'Missing scanPath' });
 
-  // Use a depth limit of 3 for fast prototyping. You can adjust this later.
   const targetPath = scanPath === 'Macintosh HD' ? '/' : scanPath;
   const maxDepth = 4;
+  const filters = { hideSystem, showPackages, largeOnly };
   
   try {
-    const data = scanDirForSunburst(targetPath, maxDepth, 0);
+    const data = scanDirForSunburst(targetPath, maxDepth, 0, filters);
     if (!data) return res.status(404).json({ error: 'Scan failed or empty.' });
     
     // Override name if it's root

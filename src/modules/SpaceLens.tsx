@@ -21,6 +21,11 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
   const [basePath, setBasePath] = useState('Macintosh HD');
   const [sunburstData, setSunburstData] = useState<any>(null);
   
+  // Filters
+  const [hideSystem, setHideSystem] = useState(true);
+  const [showPackages, setShowPackages] = useState(false);
+  const [largeOnly, setLargeOnly] = useState(false);
+  
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -37,7 +42,12 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
       const res = await fetch('/api/scan-space-lens', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scanPath: basePath === 'Macintosh HD' ? '/' : basePath })
+        body: JSON.stringify({ 
+          scanPath: basePath === 'Macintosh HD' ? '/' : basePath,
+          hideSystem,
+          showPackages,
+          largeOnly
+        })
       });
       const data = await res.json();
       
@@ -58,6 +68,16 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
       setStatus('IDLE');
     }
   };
+
+  // Auto rescan when filters change, but only if already scanned
+  useEffect(() => {
+    if (status === 'ANALYZED' || status === 'IDLE' && basePath !== 'Macintosh HD') {
+      // Don't auto-scan on initial load if idle and Macintosh HD, let user press start
+      if (sunburstData) {
+        startScan();
+      }
+    }
+  }, [hideSystem, showPackages, largeOnly]);
 
   useEffect(() => {
     if (status === 'ANALYZED') {
@@ -136,7 +156,12 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
         const scanRes = await fetch('/api/scan-space-lens', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scanPath: data.path })
+          body: JSON.stringify({ 
+            scanPath: data.path,
+            hideSystem,
+            showPackages,
+            largeOnly
+          })
         });
         const scanData = await scanRes.json();
         
@@ -173,7 +198,7 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
       .style("font", "10px sans-serif");
 
     const root = d3.hierarchy(sunburstData)
-      .sum(d => Math.max(0, d.value))
+      .sum(d => d.children && d.children.length > 0 ? 0 : Math.max(0, d.value))
       .sort((a, b) => (b.value || 0) - (a.value || 0));
 
     const partition = d3.partition()
@@ -385,18 +410,22 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
               <p className="text-[10px] text-text-sub uppercase tracking-widest font-mono font-bold">{lang === 'vi' ? 'Bộ lọc' : 'Filters'}</p>
               
               <div className="space-y-2">
-                <label className="flex items-center gap-3 text-sm text-text-main cursor-pointer hover:text-accent transition-colors">
-                  <div className="w-4 h-4 border border-accent flex items-center justify-center bg-accent/20">
-                    <div className="w-2 h-2 bg-accent"></div>
+                <label className="flex items-center gap-3 text-sm text-text-main cursor-pointer hover:text-accent transition-colors" onClick={() => setHideSystem(!hideSystem)}>
+                  <div className={`w-4 h-4 border flex items-center justify-center ${hideSystem ? 'border-accent bg-accent/20' : 'border-border-main'}`}>
+                    {hideSystem && <div className="w-2 h-2 bg-accent"></div>}
                   </div>
                   {lang === 'vi' ? 'Ẩn tệp hệ thống' : 'Hide System Files'}
                 </label>
-                <label className="flex items-center gap-3 text-sm text-text-main cursor-pointer hover:text-accent transition-colors">
-                  <div className="w-4 h-4 border border-border-main flex items-center justify-center"></div>
+                <label className="flex items-center gap-3 text-sm text-text-main cursor-pointer hover:text-accent transition-colors" onClick={() => setShowPackages(!showPackages)}>
+                  <div className={`w-4 h-4 border flex items-center justify-center ${showPackages ? 'border-accent bg-accent/20' : 'border-border-main'}`}>
+                    {showPackages && <div className="w-2 h-2 bg-accent"></div>}
+                  </div>
                   {lang === 'vi' ? 'Hiện gói dạng thư mục' : 'Show Packages as Folders'}
                 </label>
-                <label className="flex items-center gap-3 text-sm text-text-main cursor-pointer hover:text-accent transition-colors">
-                  <div className="w-4 h-4 border border-border-main flex items-center justify-center"></div>
+                <label className="flex items-center gap-3 text-sm text-text-main cursor-pointer hover:text-accent transition-colors" onClick={() => setLargeOnly(!largeOnly)}>
+                  <div className={`w-4 h-4 border flex items-center justify-center ${largeOnly ? 'border-accent bg-accent/20' : 'border-border-main'}`}>
+                    {largeOnly && <div className="w-2 h-2 bg-accent"></div>}
+                  </div>
                   {lang === 'vi' ? 'Chỉ tệp lớn (> 1GB)' : 'Large Files Only (> 1GB)'}
                 </label>
               </div>
@@ -404,10 +433,22 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
 
             <div className="space-y-3 pt-6 border-t border-border-main">
               <p className="text-[10px] text-text-sub uppercase tracking-widest font-mono font-bold">{lang === 'vi' ? 'Thao tác nhanh' : 'Quick Actions'}</p>
-              <button className="w-full py-2 border border-border-main text-text-main text-xs font-mono hover:bg-white/5 transition-colors text-left px-3">
+              <button 
+                onClick={() => {
+                  if (!sunburstData) return;
+                  const report = JSON.stringify(sunburstData, null, 2);
+                  const blob = new Blob([report], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `mac_cleanse_report_${new Date().getTime()}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="w-full py-2 border border-border-main text-text-main text-xs font-mono hover:bg-white/5 transition-colors text-left px-3">
                 {lang === 'vi' ? 'Xuất báo cáo...' : 'Export Analysis Report...'}
               </button>
-              <button onClick={() => { setStatus('IDLE'); setSelectedNode(null); }} className="w-full py-2 border border-border-main text-text-main text-xs font-mono hover:bg-white/5 transition-colors text-left px-3">
+              <button onClick={() => { startScan(); }} className="w-full py-2 border border-border-main text-text-main text-xs font-mono hover:bg-white/5 transition-colors text-left px-3">
                 {lang === 'vi' ? 'Quét lại' : 'Rescan Drive'}
               </button>
             </div>
