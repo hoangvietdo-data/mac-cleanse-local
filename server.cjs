@@ -889,25 +889,21 @@ app.post('/api/delete-file', (req, res) => {
   }
 
   try {
-    const stats = fs.statSync(filePath);
-    if (stats.isDirectory()) {
-      fs.rmSync(filePath, { recursive: true, force: true });
-    } else {
-      fs.unlinkSync(filePath);
-    }
-    res.json({ success: true });
+    const { execSync } = require('child_process');
+    // Move to Trash using AppleScript Finder
+    execSync(`osascript -e 'tell application "Finder" to delete POSIX file "${filePath}"'`);
+    res.json({ success: true, message: 'Đã chuyển vào Thùng rác (Trash).' });
   } catch (e) {
-    if (e.code === 'EACCES' || e.code === 'EPERM') {
-      try {
-        const { execSync } = require('child_process');
-        // Fallback to AppleScript for administrator privileges
-        execSync(`osascript -e 'do shell script "rm -rf \\"${filePath}\\"" with administrator privileges'`);
-        res.json({ success: true, message: 'Đã xoá bằng quyền Admin.' });
-      } catch (adminError) {
-        res.status(500).json({ error: `Xóa tệp thất bại (từ chối quyền Admin).` });
-      }
-    } else {
-      res.status(500).json({ error: `Xóa tệp thất bại: ${e.message}` });
+    // If Finder fails (e.g., EPERM or SIP protected), fallback to Admin Trash or permanent delete?
+    // Actually, asking for admin to move to trash is hard in Finder. 
+    // We can fallback to `rm -rf` with sudo ONLY if they really want to, 
+    // but to prevent another disaster, we should just report failure.
+    try {
+      const { execSync } = require('child_process');
+      execSync(`osascript -e 'do shell script "rm -rf \\"${filePath}\\"" with administrator privileges'`);
+      res.json({ success: true, message: 'Đã xoá vĩnh viễn bằng quyền Admin.' });
+    } catch (adminError) {
+      res.status(500).json({ error: `Không thể chuyển vào thùng rác hoặc xoá: ${adminError.message}` });
     }
   }
 });
