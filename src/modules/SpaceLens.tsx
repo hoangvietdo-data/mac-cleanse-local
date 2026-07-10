@@ -111,6 +111,8 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
     }, 150);
   };
 
+  const [basePath, setBasePath] = useState('Macintosh HD');
+
   useEffect(() => {
     if (status === 'ANALYZED') {
       drawSunburst();
@@ -120,40 +122,65 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
   const getFullPath = (node: any) => {
     if (!node) return '';
     const pathNames = node.ancestors().reverse().map((d: any) => d.data.name);
-    if (pathNames[0] === 'Macintosh HD') {
-      pathNames[0] = '';
-    }
-    return pathNames.join('/') || '/';
+    // Thay thế tên gốc (Macintosh HD hoặc Custom Path)
+    pathNames[0] = basePath === 'Macintosh HD' ? '' : basePath;
+    let fullPath = pathNames.join('/');
+    if (fullPath.startsWith('//')) fullPath = fullPath.substring(1);
+    return fullPath || '/';
   };
 
   const handleReveal = async () => {
     if (!selectedNode) return;
     const path = getFullPath(selectedNode);
     try {
-      await fetch('/api/open-in-finder', {
+      const res = await fetch('/api/open-in-finder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filePath: path })
       });
+      const data = await res.json();
+      if (!data.success) {
+        alert(lang === 'vi' ? `Không thể mở: ${data.error}` : `Cannot open: ${data.error}`);
+      }
     } catch (e) {
       console.error(e);
+      alert('Error opening in Finder');
     }
   };
 
   const handleDelete = async () => {
     if (!selectedNode) return;
     const path = getFullPath(selectedNode);
-    if (!confirm(`Are you sure you want to delete ${path}?`)) return;
+    if (!confirm(lang === 'vi' ? `Bạn có chắc chắn muốn xoá ${path}?` : `Are you sure you want to delete ${path}?`)) return;
     try {
-      await fetch('/api/delete-file', {
+      const res = await fetch('/api/delete-file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filePath: path })
       });
-      // In a real app, we'd refetch or update the d3 graph here.
-      alert('File/Folder deleted (mock UI).');
+      const data = await res.json();
+      if (data.success) {
+        alert(lang === 'vi' ? `Đã xoá thành công!` : `Deleted successfully!`);
+      } else {
+        alert(lang === 'vi' ? `Lỗi: ${data.error}` : `Error: ${data.error}`);
+      }
     } catch (e) {
       console.error(e);
+      alert('Error deleting file');
+    }
+  };
+
+  const handleCustomFolder = async () => {
+    try {
+      const res = await fetch('/api/select-folder');
+      const data = await res.json();
+      if (data.path) {
+        setBasePath(data.path);
+        MOCK_HD_DATA.name = data.path.split('/').pop() || data.path;
+        startScan();
+      }
+    } catch (e) {
+      console.error('Select folder canceled or error', e);
     }
   };
 
@@ -332,14 +359,18 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
                 </div>
               </div>
               <button 
-                onClick={startScan}
+                onClick={() => {
+                  setBasePath('Macintosh HD');
+                  MOCK_HD_DATA.name = 'Macintosh HD';
+                  startScan();
+                }}
                 className="w-full py-3 bg-accent text-[#080808] font-bold uppercase text-[10px] tracking-[0.2em] hover:bg-white transition-colors"
               >
                 {lang === 'vi' ? 'Phân tích' : 'Analyze Storage'}
               </button>
             </div>
             
-            <div className="p-4 border border-border-main bg-white/[0.02] rounded flex items-center justify-between cursor-pointer hover:bg-white/[0.04] transition-colors">
+            <div onClick={handleCustomFolder} className="p-4 border border-border-main bg-white/[0.02] rounded flex items-center justify-between cursor-pointer hover:bg-white/[0.04] transition-colors">
               <div className="flex items-center gap-3">
                 <Folder className="w-5 h-5 text-text-muted" />
                 <div>

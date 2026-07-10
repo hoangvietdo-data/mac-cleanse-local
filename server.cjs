@@ -855,6 +855,18 @@ app.post('/api/analyze-space', (req, res) => {
 });
 
 
+app.get('/api/select-folder', (req, res) => {
+  try {
+    const { execSync } = require('child_process');
+    // Mở hộp thoại chọn thư mục gốc của macOS
+    const result = execSync(`osascript -e 'POSIX path of (choose folder with prompt "Chọn thư mục để phân tích:")'`);
+    return res.json({ path: result.toString().trim() });
+  } catch (error) {
+    console.error('Select folder error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/open-in-finder', (req, res) => {
   const { filePath } = req.body;
   if (!filePath) return res.status(400).json({ error: 'Missing filePath' });
