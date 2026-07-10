@@ -117,6 +117,46 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
     }
   }, [status]);
 
+  const getFullPath = (node: any) => {
+    if (!node) return '';
+    const pathNames = node.ancestors().reverse().map((d: any) => d.data.name);
+    if (pathNames[0] === 'Macintosh HD') {
+      pathNames[0] = '';
+    }
+    return pathNames.join('/') || '/';
+  };
+
+  const handleReveal = async () => {
+    if (!selectedNode) return;
+    const path = getFullPath(selectedNode);
+    try {
+      await fetch('/api/open-in-finder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath: path })
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedNode) return;
+    const path = getFullPath(selectedNode);
+    if (!confirm(`Are you sure you want to delete ${path}?`)) return;
+    try {
+      await fetch('/api/delete-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath: path })
+      });
+      // In a real app, we'd refetch or update the d3 graph here.
+      alert('File/Folder deleted (mock UI).');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const drawSunburst = () => {
     if (!svgRef.current || !containerRef.current) return;
     
@@ -295,7 +335,7 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
                 onClick={startScan}
                 className="w-full py-3 bg-accent text-[#080808] font-bold uppercase text-[10px] tracking-[0.2em] hover:bg-white transition-colors"
               >
-                Analyze Storage
+                {lang === 'vi' ? 'Phân tích' : 'Analyze Storage'}
               </button>
             </div>
             
@@ -303,8 +343,8 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
               <div className="flex items-center gap-3">
                 <Folder className="w-5 h-5 text-text-muted" />
                 <div>
-                  <p className="text-sm text-text-main">Custom Folder...</p>
-                  <p className="text-[10px] text-text-muted font-mono">Choose specific path</p>
+                  <p className="text-sm text-text-main">{lang === 'vi' ? 'Thư mục tùy chỉnh...' : 'Custom Folder...'}</p>
+                  <p className="text-[10px] text-text-muted font-mono">{lang === 'vi' ? 'Chọn đường dẫn' : 'Choose specific path'}</p>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-text-muted" />
@@ -316,7 +356,7 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
           <div className="flex-1 flex flex-col justify-center">
             <div className="space-y-4">
               <div className="flex justify-between items-end">
-                <p className="text-xs text-text-muted uppercase tracking-wider font-mono">Mapping Drive...</p>
+                <p className="text-xs text-text-muted uppercase tracking-wider font-mono">{lang === 'vi' ? 'Đang phân tích...' : 'Mapping Drive...'}</p>
                 <p className="text-accent font-mono text-xl">{Math.floor(scanProgress)}%</p>
               </div>
               <div className="h-1 bg-border-main rounded-full overflow-hidden">
@@ -330,33 +370,33 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
         {status === 'ANALYZED' && (
           <div className="flex-1 overflow-y-auto pr-2 space-y-6">
             <div className="space-y-3">
-              <p className="text-[10px] text-text-sub uppercase tracking-widest font-mono font-bold">Filters</p>
+              <p className="text-[10px] text-text-sub uppercase tracking-widest font-mono font-bold">{lang === 'vi' ? 'Bộ lọc' : 'Filters'}</p>
               
               <div className="space-y-2">
                 <label className="flex items-center gap-3 text-sm text-text-main cursor-pointer hover:text-accent transition-colors">
                   <div className="w-4 h-4 border border-accent flex items-center justify-center bg-accent/20">
                     <div className="w-2 h-2 bg-accent"></div>
                   </div>
-                  Hide System Files
+                  {lang === 'vi' ? 'Ẩn tệp hệ thống' : 'Hide System Files'}
                 </label>
                 <label className="flex items-center gap-3 text-sm text-text-main cursor-pointer hover:text-accent transition-colors">
                   <div className="w-4 h-4 border border-border-main flex items-center justify-center"></div>
-                  Show Packages as Folders
+                  {lang === 'vi' ? 'Hiện gói dạng thư mục' : 'Show Packages as Folders'}
                 </label>
                 <label className="flex items-center gap-3 text-sm text-text-main cursor-pointer hover:text-accent transition-colors">
                   <div className="w-4 h-4 border border-border-main flex items-center justify-center"></div>
-                  Large Files Only ({'>'} 1GB)
+                  {lang === 'vi' ? 'Chỉ tệp lớn (> 1GB)' : 'Large Files Only (> 1GB)'}
                 </label>
               </div>
             </div>
 
             <div className="space-y-3 pt-6 border-t border-border-main">
-              <p className="text-[10px] text-text-sub uppercase tracking-widest font-mono font-bold">Quick Actions</p>
+              <p className="text-[10px] text-text-sub uppercase tracking-widest font-mono font-bold">{lang === 'vi' ? 'Thao tác nhanh' : 'Quick Actions'}</p>
               <button className="w-full py-2 border border-border-main text-text-main text-xs font-mono hover:bg-white/5 transition-colors text-left px-3">
-                Export Analysis Report...
+                {lang === 'vi' ? 'Xuất báo cáo...' : 'Export Analysis Report...'}
               </button>
               <button onClick={() => { setStatus('IDLE'); setSelectedNode(null); }} className="w-full py-2 border border-border-main text-text-main text-xs font-mono hover:bg-white/5 transition-colors text-left px-3">
-                Rescan Drive
+                {lang === 'vi' ? 'Quét lại' : 'Rescan Drive'}
               </button>
             </div>
           </div>
@@ -383,7 +423,7 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
       {status === 'ANALYZED' && (
         <div className="w-full lg:w-[320px] lg:border-l border-border-main p-6 flex flex-col bg-bg-panel z-20 shrink-0 transform transition-transform duration-300">
           <div className="flex items-center justify-between mb-6">
-            <p className="text-[10px] text-text-sub uppercase tracking-widest font-mono font-bold">Selection Details</p>
+            <p className="text-[10px] text-text-sub uppercase tracking-widest font-mono font-bold">{lang === 'vi' ? 'Chi tiết lựa chọn' : 'Selection Details'}</p>
             {selectedNode && (
               <button onClick={() => setSelectedNode(null)} className="text-text-muted hover:text-white">
                 <X className="w-4 h-4" />
@@ -399,33 +439,33 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
                 </h3>
                 <p className="text-accent font-mono text-sm">{formatBytes(selectedNode.value)}</p>
                 <p className="text-xs text-text-muted pt-1">
-                  {(selectedNode.value / MOCK_HD_DATA.value * 100).toFixed(1)}% of Macintosh HD
+                  {(selectedNode.value / MOCK_HD_DATA.value * 100).toFixed(1)}% {lang === 'vi' ? 'của' : 'of'} Macintosh HD
                 </p>
               </div>
 
               <div className="space-y-3 pt-6 border-t border-border-main">
                 <div className="flex justify-between text-xs">
-                  <span className="text-text-muted">Type</span>
-                  <span className="text-text-main font-mono">{selectedNode.children ? 'Folder' : 'File'}</span>
+                  <span className="text-text-muted">{lang === 'vi' ? 'Loại' : 'Type'}</span>
+                  <span className="text-text-main font-mono">{selectedNode.children ? (lang === 'vi' ? 'Thư mục' : 'Folder') : (lang === 'vi' ? 'Tệp' : 'File')}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-text-muted">Items</span>
+                  <span className="text-text-muted">{lang === 'vi' ? 'Số lượng' : 'Items'}</span>
                   <span className="text-text-main font-mono">
                     {selectedNode.data.files || (selectedNode.children ? selectedNode.children.length : 1)}
                   </span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-text-muted">Modified</span>
-                  <span className="text-text-main font-mono">Today, 10:42 AM</span>
+                  <span className="text-text-muted">{lang === 'vi' ? 'Sửa đổi' : 'Modified'}</span>
+                  <span className="text-text-main font-mono">{lang === 'vi' ? 'Hôm nay' : 'Today'}, 10:42 AM</span>
                 </div>
               </div>
 
               <div className="space-y-2 pt-6">
-                <button className="w-full py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-bold uppercase tracking-wider transition-colors border border-white/20">
-                  Reveal in Finder
+                <button onClick={handleReveal} className="w-full py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-bold uppercase tracking-wider transition-colors border border-white/20">
+                  {lang === 'vi' ? 'Hiện trong Finder' : 'Reveal in Finder'}
                 </button>
-                <button className="w-full py-2 border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-bold uppercase tracking-wider transition-colors">
-                  Delete...
+                <button onClick={handleDelete} className="w-full py-2 border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-bold uppercase tracking-wider transition-colors">
+                  {lang === 'vi' ? 'Xoá...' : 'Delete...'}
                 </button>
               </div>
             </div>
@@ -434,7 +474,11 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
               <div className="w-12 h-12 border border-dashed border-text-muted rounded-full flex items-center justify-center">
                 <Search className="w-5 h-5 text-text-muted" />
               </div>
-              <p className="text-xs text-text-muted">Hover or click on a segment<br />to view details.</p>
+              <p className="text-xs text-text-muted">
+                {lang === 'vi' ? 'Di chuột hoặc click vào mảng' : 'Hover or click on a segment'}
+                <br />
+                {lang === 'vi' ? 'để xem chi tiết.' : 'to view details.'}
+              </p>
             </div>
           )}
         </div>

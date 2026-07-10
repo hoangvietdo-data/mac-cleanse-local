@@ -855,6 +855,21 @@ app.post('/api/analyze-space', (req, res) => {
 });
 
 
+app.post('/api/open-in-finder', (req, res) => {
+  const { filePath } = req.body;
+  if (!filePath) return res.status(400).json({ error: 'Missing filePath' });
+
+  try {
+    const { execSync } = require('child_process');
+    // -R reveals the file in Finder instead of opening it with default app
+    execSync(`open -R "${filePath}"`);
+    return res.json({ success: true, message: `Opened ${filePath}` });
+  } catch (error) {
+    console.error('Open error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/delete-file', (req, res) => {
   const { filePath } = req.body;
   if (!filePath || !fs.existsSync(filePath)) {
