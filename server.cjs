@@ -698,8 +698,18 @@ app.post('/api/clean-junk', (req, res) => {
 
     // 2. Perform cleaning
     if (cleanCaches && fs.existsSync(cachesPath)) {
-      execSync(`rm -rf "${cachesPath}"/*`);
-      logs.push('Đã làm sạch bộ nhớ đệm người dùng (User Caches).');
+      try {
+        const items = fs.readdirSync(cachesPath);
+        for (const item of items) {
+          if (item.toLowerCase().includes('google')) {
+            continue;
+          }
+          execSync(`rm -rf "${path.join(cachesPath, item)}"`);
+        }
+        logs.push('Đã làm sạch bộ nhớ đệm người dùng (bỏ qua Google Cache).');
+      } catch (err) {
+        console.error(err);
+      }
     }
 
     if (cleanLogs && fs.existsSync(logsPath)) {
@@ -744,6 +754,8 @@ app.post('/api/clean-junk', (req, res) => {
 // ==========================================
 
 app.get('/api/large-files', (req, res) => {
+  const minSizeMB = parseInt(req.query.minSizeMB) || 50;
+  
   const scanDirs = [
     path.join(HOME, 'Downloads'),
     path.join(HOME, 'Documents'),
@@ -755,7 +767,7 @@ app.get('/api/large-files', (req, res) => {
 
   const filesList = [];
   
-  // Create find command searching specific folders for files > 50MB
+  // Create find command searching specific folders for files > minSizeMB
   const validDirs = scanDirs.filter(d => fs.existsSync(d));
   if (validDirs.length === 0) {
     return res.json([]);
@@ -764,8 +776,8 @@ app.get('/api/large-files', (req, res) => {
   const dirsStr = validDirs.map(d => `"${d}"`).join(' ');
   
   try {
-    // maxdepth 3 for faster results, size +50M
-    const findCmd = `find ${dirsStr} -type f -size +50M -maxdepth 3 -not -path "*/.*" -not -path "*node_modules*" 2>/dev/null || true`;
+    // maxdepth 3 for faster results, size +{minSizeMB}M
+    const findCmd = `find ${dirsStr} -type f -size +${minSizeMB}M -maxdepth 3 -not -path "*/.*" -not -path "*node_modules*" 2>/dev/null || true`;
     const stdout = execSync(findCmd, { maxBuffer: 10 * 1024 * 1024 }).toString();
     const filePaths = stdout.trim().split('\n').filter(Boolean);
 
@@ -799,6 +811,49 @@ app.get('/api/large-files', (req, res) => {
   filesList.sort((a, b) => b.size - a.size);
   res.json(filesList);
 });
+// ---------------------------------------------------------------------------
+// 5. SPACE ANALYSIS (Heuristic)
+// ---------------------------------------------------------------------------
+app.post('/api/analyze-space', (req, res) => {
+  const { scannedStorageKB = 0, duplicatesCount = 0, largeFilesCount = 0, oldFilesCount = 0 } = req.body;
+  
+  let title = "Hệ thống Tối ưu";
+  let description = "Dữ liệu của bạn đang ở trạng thái tốt. Tuy nhiên, vẫn có thể tối ưu thêm.";
+  let recommendations = [];
+  let tags = ["System Healthy"];
+
+  if (duplicatesCount > 0 || largeFilesCount > 0) {
+    title = "Cần Tối Ưu Hoá";
+    description = "Hệ thống phát hiện các tệp tin dư thừa đang chiếm dụng không gian lưu trữ.";
+    tags = [];
+    
+    if (duplicatesCount > 0) {
+      recommendations.push("Xoá các bản sao (duplicate) để tiết kiệm dung lượng.");
+      tags.push("Duplicate Files");
+    }
+    if (largeFilesCount > 0) {
+      recommendations.push("Kiểm tra và di chuyển các tệp kích thước quá lớn sang ổ cứng ngoài.");
+      tags.push("Large Files");
+    }
+    if (oldFilesCount > 0) {
+      recommendations.push("Dọn dẹp các tệp tin cũ không sử dụng trên 90 ngày.");
+      tags.push("Old Files");
+    }
+  } else if (scannedStorageKB > 500000) { // 500MB browser cache
+    title = "Tràn Bộ Nhớ Tạm";
+    description = "Dữ liệu đệm của trình duyệt đang vượt mức đề xuất.";
+    recommendations.push("Vào cài đặt trình duyệt để xoá Cache và Cookies.");
+    tags = ["Browser Clutter"];
+  }
+
+  res.json({
+    title,
+    description,
+    recommendations,
+    tags
+  });
+});
+
 
 app.post('/api/delete-file', (req, res) => {
   const { filePath } = req.body;
@@ -900,6 +955,128 @@ app.post('/api/maintenance/ram', (req, res) => {
   }
 });
 
+// Leftover Scanner Endpoints
+app.get('/api/scan-leftovers', (req, res) => {
+  try {
+    const installedIds = new Set();
+    const installedNames = new Set();
+    
+    const dirs = ['/Applications', path.join(HOME, 'Applications'), '/System/Applications', '/System/Applications/Utilities'];
+    for (const dir of dirs) {
+      if (!fs.existsSync(dir)) continue;
+      try {
+        const files = fs.readdirSync(dir);
+        for (const file of files) {
+          if (file.endsWith('.app') && !file.startsWith('.')) {
+            const appPath = path.join(dir, file);
+            const plistInfo = readPlist(appPath);
+            if (plistInfo && plistInfo.CFBundleIdentifier) {
+              installedIds.add(plistInfo.CFBundleIdentifier.toLowerCase());
+            }
+            const name = file.replace('.app', '').toLowerCase();
+            installedNames.add(name);
+            if (plistInfo && plistInfo.CFBundleName) {
+              installedNames.add(plistInfo.CFBundleName.toLowerCase());
+            }
+            if (plistInfo && plistInfo.CFBundleDisplayName) {
+              installedNames.add(plistInfo.CFBundleDisplayName.toLowerCase());
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    const leftovers = [];
+    const scanPaths = [
+      { path: path.join(HOME, 'Library', 'Application Support'), functionDesc: 'Dữ liệu Hỗ trợ (App Support)', safety: 'Caution', consequence: 'Mất dữ liệu, cấu hình, plugin ứng dụng. Có thể ảnh hưởng đến các ứng dụng cùng hãng.' },
+      { path: path.join(HOME, 'Library', 'Caches'), functionDesc: 'Bộ nhớ đệm (Caches)', safety: 'Safe', consequence: 'An toàn. Bộ đệm sẽ tự tạo lại nếu ứng dụng được cài lại.' },
+      { path: path.join(HOME, 'Library', 'Preferences'), functionDesc: 'Tùy chọn (Preferences)', safety: 'Caution', consequence: 'Làm mất các cài đặt và sở thích cá nhân đối với ứng dụng này.' },
+      { path: path.join(HOME, 'Library', 'Logs'), functionDesc: 'Nhật ký (Logs)', safety: 'Safe', consequence: 'Chỉ mất lịch sử hoạt động ứng dụng. Rất an toàn.' },
+      { path: path.join(HOME, 'Library', 'Containers'), functionDesc: 'Môi trường cô lập (Containers)', safety: 'Caution', consequence: 'Xóa toàn bộ dữ liệu của ứng dụng trong môi trường Sandbox.' }
+    ];
+
+    for (const sp of scanPaths) {
+      if (!fs.existsSync(sp.path)) continue;
+      try {
+        const items = fs.readdirSync(sp.path);
+        for (const item of items) {
+          if (item === '.DS_Store' || item.startsWith('.')) continue;
+          
+          const itemLower = item.toLowerCase();
+          let isInstalled = false;
+          
+          for (const id of installedIds) {
+            if (itemLower.startsWith(id)) {
+              isInstalled = true;
+              break;
+            }
+          }
+          
+          if (!isInstalled) {
+            const cleanItemName = itemLower.replace(/\.plist$/, '').replace(/^com\./, '');
+            for (const name of installedNames) {
+              if (name.length > 2 && (cleanItemName === name || cleanItemName.startsWith(name + '.') || cleanItemName.startsWith(name + ' '))) {
+                isInstalled = true;
+                break;
+              }
+            }
+          }
+          
+          const systemKeywords = ['com.apple.', 'apple', 'com.microsoft.', 'microsoft', 'google'];
+          if (systemKeywords.some(k => itemLower.startsWith(k))) {
+             isInstalled = true;
+          }
+
+          if (!isInstalled) {
+            const fullPath = path.join(sp.path, item);
+            let size = 0;
+            try {
+              if (fs.lstatSync(fullPath).isDirectory()) {
+                size = getFolderSize(fullPath);
+              } else {
+                size = fs.statSync(fullPath).size;
+              }
+            } catch(e) {}
+            
+            let origin = item;
+            if (item.endsWith('.plist')) origin = item.replace('.plist', '');
+            
+            leftovers.push({
+              path: fullPath,
+              origin,
+              name: item,
+              size,
+              functionDesc: sp.functionDesc,
+              safety: sp.safety,
+              consequence: sp.consequence
+            });
+          }
+        }
+      } catch (e) {}
+    }
+    
+    res.json(leftovers);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/delete-leftovers', (req, res) => {
+  const { paths } = req.body;
+  if (!paths || !Array.isArray(paths)) return res.status(400).json({ error: 'Paths must be an array' });
+  
+  let deletedCount = 0;
+  for (const p of paths) {
+    if (fs.existsSync(p)) {
+      try {
+        execSync(`rm -rf "${p}"`);
+        deletedCount++;
+      } catch (e) {}
+    }
+  }
+  res.json({ success: true, deletedCount });
+});
+
 // System Stats (disk space & RAM stats)
 app.get('/api/system-stats', (req, res) => {
   try {
@@ -927,6 +1104,69 @@ app.get('/api/system-stats', (req, res) => {
     console.error('Failed to get system stats:', e.message);
   }
   res.json({ total: 0, occupied: 0, free: 0, ramTotal: 0, ramFree: 0 });
+});
+
+// Space Lens
+app.get('/api/space-lens', (req, res) => {
+  const targetPath = req.query.path || path.join(HOME, 'Downloads');
+  const maxDepth = parseInt(req.query.depth, 10) || 2;
+  
+  function buildTree(currentPath, currentDepth) {
+    let name = path.basename(currentPath);
+    if (!name) name = currentPath;
+    
+    let stats;
+    try {
+      stats = fs.lstatSync(currentPath);
+    } catch (e) {
+      return null;
+    }
+    
+    if (stats.isSymbolicLink()) return null;
+    
+    if (stats.isDirectory()) {
+      if (currentDepth >= maxDepth) {
+        return { name, value: getFolderSize(currentPath) };
+      }
+      
+      let items;
+      try {
+        items = fs.readdirSync(currentPath);
+      } catch (e) {
+        return { name, value: getFolderSize(currentPath) };
+      }
+      
+      let children = [];
+      let filesSize = 0;
+      for (const item of items) {
+        const childPath = path.join(currentPath, item);
+        try {
+          const childStats = fs.lstatSync(childPath);
+          if (childStats.isDirectory()) {
+            const childNode = buildTree(childPath, currentDepth + 1);
+            if (childNode) children.push(childNode);
+          } else if (childStats.isFile()) {
+            filesSize += childStats.size;
+          }
+        } catch(e) {}
+      }
+      
+      if (filesSize > 0) {
+        children.push({ name: '(các tệp)', value: filesSize });
+      }
+      
+      if (children.length > 0) {
+        return { name, children };
+      } else {
+        return { name, value: 0 };
+      }
+    } else {
+      return { name, value: stats.size };
+    }
+  }
+  
+  const tree = buildTree(targetPath, 0);
+  res.json(tree || { name: 'Empty', value: 0 });
 });
 
 // Fallback for SPA routing - serve index.html for any unmatched non-api routes (if dist exists)

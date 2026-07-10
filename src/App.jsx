@@ -6,6 +6,7 @@ import { GithubStarsButton } from "@/components/lazy-ui/github-stars-button";
 import { GlassButton } from "@/components/lazy-ui/glass-button";
 import { TextSpin } from "@/components/lazy-ui/text-spin";
 import { motion } from "motion/react";
+import SpaceLensTab from './components/SpaceLensTab';
 
 // API Base URL
 const API_BASE = '/api';
@@ -15,9 +16,10 @@ const TRANSLATIONS = {
   vi: {
     menu_smart_scan:'Quét Thông Minh',section_clean:'DỌN DẸP',menu_system_junk:'Rác Hệ Thống',
     menu_large_files:'Tập Tin Lớn & Cũ',section_manage:'QUẢN TRỊ',menu_optimization:'Tối Ưu Hóa',
-    menu_maintenance:'Bảo Trì',menu_app_slimmer:'App Slimmer',
+    menu_maintenance:'Bảo Trì',menu_app_slimmer:'App Slimmer',menu_space_lens:'Trực quan hóa dữ liệu',
     ram_free:'RAM trống:',disk_free:'Ổ đĩa trống:',disk_total:'Tổng ổ đĩa:',
     feedback:'Góp ý',
+    space_lens_title:'Trực quan hóa Dữ Liệu',space_lens_desc:'Khám phá các thư mục lớn dưới dạng biểu đồ hình tròn.',
     smart_scan_title:'Quét Thông Minh',smart_scan_desc:'Khởi chạy phân tích toàn diện rác hệ thống, tệp tin lớn và tình trạng bộ nhớ thiết bị của bạn.',
     scan:'QUÉT',scanning:'ĐANG QUÉT...',completed:'HOÀN TẤT',cleaning:'ĐANG DỌN...',cleaned:'ĐÃ DỌN XONG',
     click_to_scan:'Nhấp vào nút để bắt đầu phân tích thiết bị của bạn',
@@ -52,9 +54,10 @@ const TRANSLATIONS = {
   en: {
     menu_smart_scan:'Smart Scan',section_clean:'CLEANUP',menu_system_junk:'System Junk',
     menu_large_files:'Large & Old Files',section_manage:'ADMINISTRATION',menu_optimization:'Optimization',
-    menu_maintenance:'Maintenance',menu_app_slimmer:'App Slimmer',
+    menu_maintenance:'Maintenance',menu_app_slimmer:'App Slimmer',menu_space_lens:'Space Lens',
     ram_free:'Free RAM:',disk_free:'Free Disk:',disk_total:'Total Disk:',
     feedback:'Feedback',
+    space_lens_title:'Space Lens',space_lens_desc:'Explore large folders as circular maps.',
     smart_scan_title:'Smart Scan',smart_scan_desc:'Launch a comprehensive analysis of system junk, large files, and device memory status.',
     scan:'SCAN',scanning:'SCANNING...',completed:'COMPLETED',cleaning:'CLEANING...',cleaned:'CLEANED',
     click_to_scan:'Click the button to start analyzing your device',
@@ -164,6 +167,9 @@ const Icons = {
   ),
   Uninstall: () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+  ),
+  SpaceLens: () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle><line x1="21.17" y1="8" x2="12" y2="8"></line><line x1="3.95" y1="6.06" x2="8.54" y2="14"></line><line x1="10.88" y1="21.94" x2="15.46" y2="14"></line></svg>
   )
 };
 
@@ -230,6 +236,10 @@ export default function App() {
   const [selectedApps, setSelectedApps] = useState(new Set());
   const [appFilter, setAppFilter] = useState('all'); // all, slimmable, offloaded, running, system
   const [appSearch, setAppSearch] = useState('');
+  
+  const [slimmerView, setSlimmerView] = useState('apps'); // 'apps', 'leftovers'
+  const [leftovers, setLeftovers] = useState([]);
+  const [selectedLeftovers, setSelectedLeftovers] = useState(new Set());
 
   // Add a line to the action console
   const addLog = (text, type = 'info') => {
@@ -311,10 +321,15 @@ export default function App() {
         const data = await res.json();
         setProcesses(data);
       } else if (tab === 'app_slimmer') {
-        const res = await fetch(`${API_BASE}/apps`);
-        const data = await res.json();
-        setApps(data);
-        setSelectedApps(new Set());
+        if (slimmerView === 'apps') {
+          const res = await fetch(`${API_BASE}/apps`);
+          if (res.ok) setApps(await res.json());
+          setSelectedApps(new Set());
+        } else {
+          const res = await fetch(`${API_BASE}/scan-leftovers`);
+          if (res.ok) setLeftovers(await res.json());
+          setSelectedLeftovers(new Set());
+        }
       }
       await fetchSystemStats();
     } catch (e) {
@@ -330,6 +345,12 @@ export default function App() {
       loadTabData(activeTab);
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'app_slimmer') {
+      loadTabData('app_slimmer');
+    }
+  }, [slimmerView]);
 
   // Helper: Perform API call for cleaning junk (bypasses UI actionInProgress check)
   const performJunkClean = async (options) => {
@@ -596,6 +617,34 @@ export default function App() {
       setActionInProgress(false);
     }
   };
+  // Leftovers deletion handler
+  const handleDeleteLeftovers = async () => {
+    if (selectedLeftovers.size === 0 || actionInProgress) return;
+    addLog(`Đang tiến hành dọn dẹp ${selectedLeftovers.size} tàn dư...`, 'info');
+    setActionInProgress(true);
+    
+    try {
+      const paths = Array.from(selectedLeftovers);
+      const res = await fetch(`${API_BASE}/delete-leftovers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        addLog(`Đã xóa thành công ${data.deletedCount} tàn dư ứng dụng!`, 'success');
+        setLeftovers(leftovers.filter(l => !selectedLeftovers.has(l.path)));
+        setSelectedLeftovers(new Set());
+      } else {
+        addLog(`Lỗi khi dọn tàn dư: ${data.error}`, 'error');
+      }
+    } catch (e) {
+      addLog(`Lỗi khi dọn tàn dư: ${e.message}`, 'error');
+    } finally {
+      setActionInProgress(false);
+      setModal({ isOpen: false, type: '', data: null });
+    }
+  };
 
   // Bulk operations App Slimmer
   const handleBulkAppAction = async (type) => {
@@ -710,6 +759,11 @@ export default function App() {
               <li>
                 <a className={`menu-item ${activeTab === 'large_files' ? 'active' : ''}`} onClick={() => setActiveTab('large_files')}>
                   <Icons.LargeFiles /> {t('menu_large_files')}
+                </a>
+              </li>
+              <li>
+                <a className={`menu-item ${activeTab === 'space_lens' ? 'active' : ''}`} onClick={() => setActiveTab('space_lens')}>
+                  <Icons.SpaceLens /> {t('menu_space_lens')}
                 </a>
               </li>
               <div style={{ margin: '10px 0 5px 12px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('section_manage')}</div>
@@ -1191,6 +1245,18 @@ export default function App() {
         {/* ========================================== */}
         {/* TAB 4: OPTIMIZATION (TỐI ƯU HÓA TIẾN TRÌNH) */}
         {/* ========================================== */}
+        {activeTab === 'space_lens' && (
+          <div className="tab-pane active" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+            <div className="header-title">
+              <div className="title-container">
+                <h1><TextWarp text={t('space_lens_title')} trigger={activeTab} /></h1>
+                <p className="subtitle">{t('space_lens_desc')}</p>
+              </div>
+            </div>
+            <SpaceLensTab t={t} />
+          </div>
+        )}
+
         {activeTab === 'optimization' && (
           <div>
             <header className="header">
@@ -1348,37 +1414,61 @@ export default function App() {
 
             {/* Controls */}
             <section className="control-row">
-              <div className="search-bar">
-                <Icons.Search />
-                <input 
-                  type="text" 
-                  placeholder={t('search_app')} 
-                  value={appSearch}
-                  onChange={(e) => setAppSearch(e.target.value)}
-                />
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', width: '100%' }}>
+                <GlassButton size="sm" tint={slimmerView === 'apps' ? 'warm' : 'cool'} onClick={() => setSlimmerView('apps')}>
+                  Ứng dụng Đang Cài Đặt
+                </GlassButton>
+                <GlassButton size="sm" tint={slimmerView === 'leftovers' ? 'warm' : 'cool'} onClick={() => setSlimmerView('leftovers')}>
+                  Tàn dư Ứng dụng
+                </GlassButton>
               </div>
               
-              <div className="filters" style={{ flexWrap: 'wrap', gap: '8px' }}>
-                <GlassButton size="sm" tint={appFilter === 'all' ? 'warm' : 'cool'} onClick={() => setAppFilter('all')}>{t('cat_all')}</GlassButton>
-                <GlassButton size="sm" tint={appFilter === 'slimmable' ? 'warm' : 'cool'} onClick={() => setAppFilter('slimmable')}>{t('filter_slimmable')}</GlassButton>
-                <GlassButton size="sm" tint={appFilter === 'offloaded' ? 'warm' : 'cool'} onClick={() => setAppFilter('offloaded')}>{t('filter_offloaded')}</GlassButton>
-                <GlassButton size="sm" tint={appFilter === 'running' ? 'warm' : 'cool'} onClick={() => setAppFilter('running')}>{t('filter_running')}</GlassButton>
-                <GlassButton size="sm" tint={appFilter === 'system' ? 'warm' : 'cool'} onClick={() => setAppFilter('system')}>{t('filter_system')}</GlassButton>
-                
-                {selectedApps.size > 0 && (
-                  <div style={{ display: 'flex', gap: '8px', marginLeft: '15px', borderLeft: '1px solid var(--glass-border)', paddingLeft: '15px' }}>
-                    <GlassButton size="sm" tint="cool" onClick={() => handleBulkAppAction('compress')}>
-                      Nén chọn ({selectedApps.size})
-                    </GlassButton>
-                    <GlassButton size="sm" tint="cool" onClick={() => handleBulkAppAction('offload')}>
-                      Giải phóng ({selectedApps.size})
-                    </GlassButton>
-                    <GlassButton size="sm" tint="cool" onClick={() => handleBulkAppAction('clean')}>
-                      Dọn Dữ Liệu Ẩn ({selectedApps.size})
-                    </GlassButton>
+              {slimmerView === 'apps' ? (
+                <>
+                  <div className="search-bar">
+                    <Icons.Search />
+                    <input 
+                      type="text" 
+                      placeholder={t('search_app')} 
+                      value={appSearch}
+                      onChange={(e) => setAppSearch(e.target.value)}
+                    />
                   </div>
-                )}
-              </div>
+                  
+                  <div className="filters" style={{ flexWrap: 'wrap', gap: '8px' }}>
+                    <GlassButton size="sm" tint={appFilter === 'all' ? 'warm' : 'cool'} onClick={() => setAppFilter('all')}>{t('cat_all')}</GlassButton>
+                    <GlassButton size="sm" tint={appFilter === 'slimmable' ? 'warm' : 'cool'} onClick={() => setAppFilter('slimmable')}>{t('filter_slimmable')}</GlassButton>
+                    <GlassButton size="sm" tint={appFilter === 'offloaded' ? 'warm' : 'cool'} onClick={() => setAppFilter('offloaded')}>{t('filter_offloaded')}</GlassButton>
+                    <GlassButton size="sm" tint={appFilter === 'running' ? 'warm' : 'cool'} onClick={() => setAppFilter('running')}>{t('filter_running')}</GlassButton>
+                    <GlassButton size="sm" tint={appFilter === 'system' ? 'warm' : 'cool'} onClick={() => setAppFilter('system')}>{t('filter_system')}</GlassButton>
+                    
+                    {selectedApps.size > 0 && (
+                      <div style={{ display: 'flex', gap: '8px', marginLeft: '15px', borderLeft: '1px solid var(--glass-border)', paddingLeft: '15px' }}>
+                        <GlassButton size="sm" tint="cool" onClick={() => handleBulkAppAction('compress')}>
+                          Nén chọn ({selectedApps.size})
+                        </GlassButton>
+                        <GlassButton size="sm" tint="cool" onClick={() => handleBulkAppAction('offload')}>
+                          Giải phóng ({selectedApps.size})
+                        </GlassButton>
+                        <GlassButton size="sm" tint="cool" onClick={() => handleBulkAppAction('clean')}>
+                          Dọn Dữ Liệu Ẩn ({selectedApps.size})
+                        </GlassButton>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="filters" style={{ width: '100%', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+                    Phát hiện: {leftovers.length} mục tàn dư ({formatBytes(leftovers.reduce((acc, l) => acc + l.size, 0))})
+                  </div>
+                  {selectedLeftovers.size > 0 && (
+                    <GlassButton size="sm" tint="cool" onClick={() => openConfirmationModal('delete_leftovers', null)}>
+                      Dọn dẹp tàn dư ({selectedLeftovers.size})
+                    </GlassButton>
+                  )}
+                </div>
+              )}
             </section>
 
             {/* Apps table list */}
@@ -1401,6 +1491,79 @@ export default function App() {
                 </div>
               ) : filteredApps.length === 0 ? (
                 <div className="empty-state">Không tìm thấy ứng dụng phù hợp với bộ lọc.</div>
+              ) : slimmerView === 'leftovers' ? (
+                leftovers.length === 0 ? (
+                  <div className="empty-state">Không tìm thấy tàn dư ứng dụng nào. Chúc mừng máy tính của bạn rất sạch!</div>
+                ) : (
+                  <table className="apps-table">
+                    <thead>
+                      <tr>
+                        <th className="checkbox-cell">
+                          <label className="checkbox-container">
+                            <input 
+                              type="checkbox" 
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedLeftovers(new Set(leftovers.map(l => l.path)));
+                                else setSelectedLeftovers(new Set());
+                              }}
+                              checked={leftovers.length > 0 && leftovers.every(l => selectedLeftovers.has(l.path))}
+                            />
+                            <span className="checkmark" />
+                          </label>
+                        </th>
+                        <th>Nguồn gốc</th>
+                        <th>Chức năng</th>
+                        <th>An toàn / Hệ quả</th>
+                        <th>Kích thước</th>
+                        <th>Đường dẫn</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leftovers.map((l, index) => (
+                        <tr key={l.path} className="stagger-item" style={{ animationDelay: `${Math.min(index, 20) * 30}ms` }}>
+                          <td className="checkbox-cell">
+                            <label className="checkbox-container">
+                              <input 
+                                type="checkbox" 
+                                checked={selectedLeftovers.has(l.path)}
+                                onChange={() => {
+                                  const next = new Set(selectedLeftovers);
+                                  if (next.has(l.path)) next.delete(l.path);
+                                  else next.add(l.path);
+                                  setSelectedLeftovers(next);
+                                }}
+                              />
+                              <span className="checkmark" />
+                            </label>
+                          </td>
+                          <td>
+                            <div className="app-meta-cell">
+                              <div className="app-fallback-icon" style={{ width: '32px', height: '32px', fontSize: '14px' }}>
+                                {l.origin.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="app-name-container">
+                                <span className="app-name-title" style={{ textTransform: 'capitalize' }}>{l.origin}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td>{l.functionDesc}</td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <span className="badge" style={{ alignSelf: 'flex-start', background: l.safety === 'Safe' ? 'var(--color-success)' : 'var(--color-warning)', color: '#fff' }}>
+                                {l.safety}
+                              </span>
+                              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{l.consequence}</span>
+                            </div>
+                          </td>
+                          <td style={{ fontWeight: '500' }}>{formatBytes(l.size)}</td>
+                          <td style={{ fontSize: '12px', wordBreak: 'break-all', color: 'var(--text-secondary)', maxWidth: '200px' }}>
+                            {l.path}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )
               ) : (
                 <table className="apps-table">
                   <thead>
@@ -1572,8 +1735,7 @@ export default function App() {
           </section>
         </div>
       </main>
-    </div>
-
+</div>
       {/* Action Dialog Confirmation Modals */}
       {modal.isOpen && (
         <div className="modal-overlay">
@@ -1583,6 +1745,7 @@ export default function App() {
               {modal.type === 'offload' && 'Giải Phóng Dung Lượng Ứng Dụng'}
               {modal.type === 'uninstall' && 'Gỡ Cài Đặt Sạch'}
               {modal.type === 'delete_file' && 'Xác Nhận Xóa Tập Tin'}
+              {modal.type === 'delete_leftovers' && 'Xác Nhận Dọn Dẹp Tàn Dư'}
             </h3>
             
             <div className="modal-body">
@@ -1623,6 +1786,13 @@ export default function App() {
                   Hành động này sẽ xóa vĩnh viễn tệp khỏi ổ cứng của bạn.
                 </>
               )}
+              {modal.type === 'delete_leftovers' && (
+                <>
+                  Bạn đang chuẩn bị xóa <strong>{selectedLeftovers.size}</strong> mục tàn dư ứng dụng. 
+                  Một khi đã xóa, các cài đặt hoặc bộ nhớ đệm (nếu có) của các ứng dụng này sẽ mất vĩnh viễn.<br /><br />
+                  Bạn có chắc chắn muốn tiếp tục dọn dẹp không?
+                </>
+              )}
             </div>
 
             <div className="modal-footer">
@@ -1634,10 +1804,12 @@ export default function App() {
               </GlassButton>
               <GlassButton 
                 tint="cool"
-                style={modal.type === 'uninstall' || modal.type === 'delete_file' ? { color: 'var(--color-danger)' } : {}}
+                style={modal.type === 'uninstall' || modal.type === 'delete_file' || modal.type === 'delete_leftovers' ? { color: 'var(--color-danger)' } : {}}
                 onClick={() => {
                   if (modal.type === 'delete_file') {
                     deleteLargeFile(modal.data);
+                  } else if (modal.type === 'delete_leftovers') {
+                    handleDeleteLeftovers();
                   } else {
                     handleAppAction(modal.type, modal.data);
                   }
