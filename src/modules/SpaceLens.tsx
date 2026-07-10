@@ -386,34 +386,44 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
     const keys = apiKeys.split(',').map(k => k.trim()).filter(k => k);
     let resultText = '';
     let lastError = '';
+    
+    // Updated list of active Groq models
+    const groqModels = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "gemma2-9b-it"];
 
+    outerLoop:
     for (const key of keys) {
-      try {
-        console.log("Trying Groq API key:", key.substring(0, 5) + "...");
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${key}`
-          },
-          body: JSON.stringify({ 
-            model: "llama3-8b-8192",
-            messages: [{ role: "user", content: prompt }]
-          })
-        });
-        
-        const data = await response.json();
-        if (!response.ok) {
-          console.error("Groq API Error Response:", data);
-          lastError = data.error?.message || 'Unknown API Error';
-          throw new Error(lastError);
+      for (const model of groqModels) {
+        try {
+          console.log(`Trying Groq API key: ${key.substring(0, 5)}... with model: ${model}`);
+          const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${key}`
+            },
+            body: JSON.stringify({ 
+              model: model,
+              messages: [{ role: "user", content: prompt }]
+            })
+          });
+          
+          const data = await response.json();
+          if (!response.ok) {
+            console.error(`Groq API Error Response (${model}):`, data);
+            lastError = data.error?.message || 'Unknown API Error';
+            // If rate limited, switch to the next key immediately instead of next model
+            if (response.status === 429) {
+              break; 
+            }
+            throw new Error(lastError);
+          }
+          
+          resultText = data.choices[0].message.content;
+          break outerLoop;
+        } catch (e: any) {
+          console.warn(`Attempt failed (Key: ${key.substring(0,5)}..., Model: ${model}), trying next...`, e);
+          lastError = e.message;
         }
-        
-        resultText = data.choices[0].message.content;
-        break;
-      } catch (e: any) {
-        console.warn('Key failed, trying next...', e);
-        lastError = e.message;
       }
     }
 
