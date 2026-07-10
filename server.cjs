@@ -889,7 +889,12 @@ app.post('/api/delete-file', (req, res) => {
   }
 
   try {
-    fs.unlinkSync(filePath);
+    const stats = fs.statSync(filePath);
+    if (stats.isDirectory()) {
+      fs.rmSync(filePath, { recursive: true, force: true });
+    } else {
+      fs.unlinkSync(filePath);
+    }
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: `Xóa tệp thất bại: ${e.message}` });
