@@ -385,28 +385,42 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
 
     const keys = apiKeys.split(',').map(k => k.trim()).filter(k => k);
     let resultText = '';
+    let lastError = '';
 
     for (const key of keys) {
       try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+        console.log("Trying Groq API key:", key.substring(0, 5) + "...");
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`
+          },
+          body: JSON.stringify({ 
+            model: "llama3-8b-8192",
+            messages: [{ role: "user", content: prompt }]
+          })
         });
         
-        if (!response.ok) throw new Error('API Error');
         const data = await response.json();
-        resultText = data.candidates[0].content.parts[0].text;
+        if (!response.ok) {
+          console.error("Groq API Error Response:", data);
+          lastError = data.error?.message || 'Unknown API Error';
+          throw new Error(lastError);
+        }
+        
+        resultText = data.choices[0].message.content;
         break;
-      } catch (e) {
-        console.warn('Key failed, trying next...');
+      } catch (e: any) {
+        console.warn('Key failed, trying next...', e);
+        lastError = e.message;
       }
     }
 
     setGeneratingAI(false);
 
     if (!resultText) {
-      alert(lang === 'vi' ? 'Lỗi: Tất cả API Key đều không hoạt động hoặc bị giới hạn!' : 'Error: All API Keys failed or rate limited!');
+      alert((lang === 'vi' ? 'Lỗi API: ' : 'API Error: ') + lastError);
       return;
     }
 
@@ -589,13 +603,13 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
             </h3>
             <p className="text-sm text-text-muted mb-4">
               {lang === 'vi' 
-                ? 'Nhập Google Gemini API Key để AI có thể tự động phân tích đĩa và tạo PDF báo cáo. Bạn có thể nhập nhiều key cách nhau bằng dấu phẩy (,).'
-                : 'Enter Google Gemini API Key(s) to generate PDF reports. You can enter multiple keys separated by commas.'}
+                ? 'Nhập Groq API Key để AI có thể tự động phân tích đĩa và tạo PDF báo cáo. Bạn có thể nhập nhiều key cách nhau bằng dấu phẩy (,).'
+                : 'Enter Groq API Key(s) to generate PDF reports. You can enter multiple keys separated by commas.'}
             </p>
             <textarea 
               value={apiKeys}
               onChange={(e) => setApiKeys(e.target.value)}
-              placeholder="AIzaSy... , AIzaSy..."
+              placeholder="gsk_..."
               className="w-full h-24 bg-black/50 border border-border-main text-text-main p-3 text-sm font-mono outline-none focus:border-accent mb-4"
             />
             <button 
