@@ -175,6 +175,31 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
         })
         .on("click", clicked);
 
+    function labelVisible(d: any) {
+      return d.y1 <= radius && d.y0 >= 0 && (d.x1 - d.x0) > 0.08;
+    }
+
+    function labelTransform(d: any) {
+      const x = (d.x0 + d.x1) / 2 * 180 / Math.PI;
+      const y = (d.y0 + d.y1) / 2;
+      return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`;
+    }
+
+    const label = svg.append("g")
+      .attr("pointer-events", "none")
+      .attr("text-anchor", "middle")
+      .style("user-select", "none")
+      .selectAll("text")
+      .data(root.descendants().filter(d => d.depth && d.x1 - d.x0 > 0.01))
+      .join("text")
+        .attr("dy", "0.35em")
+        .attr("fill", "rgba(255,255,255,0.7)")
+        .style("font-size", "10px")
+        .style("font-family", "var(--font-mono)")
+        .attr("fill-opacity", d => labelVisible(d.current) ? 1 : 0)
+        .attr("transform", d => labelTransform(d.current))
+        .text(d => d.data.name);
+
     const parent = svg.append("circle")
       .datum(root)
       .attr("r", radius / root.height)
@@ -229,6 +254,13 @@ export default function SpaceLens({ lang = "vi", theme = "dark" }: { lang?: stri
         })
         .attr("fill-opacity", (d: any) => arcVisible(d.target) ? 1 : 0)
         .attrTween("d", (d: any) => () => arc(d.current) as string);
+
+      label.transition(t)
+        .filter(function(d: any) {
+          return +(this.getAttribute("fill-opacity") || 0) || labelVisible(d.target);
+        })
+        .attr("fill-opacity", (d: any) => labelVisible(d.target) ? 1 : 0)
+        .attrTween("transform", (d: any) => () => labelTransform(d.current));
     }
 
     function arcVisible(d: any) {
